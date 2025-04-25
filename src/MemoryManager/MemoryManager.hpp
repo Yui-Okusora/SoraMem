@@ -2,22 +2,30 @@
 
 #define NeuroSoraCore_MemoryManager
 
-#include <iostream>
-#include <windows.h>
-#include <thread>
 #include <mutex>
 #include <shared_mutex>
 #include <list>
-#include <vector>
-#include <algorithm>
 
-#include "src/Timer.hpp"
 
 #include "src/AdvancedMemory/AdvancedMemory.hpp"
 
 namespace SoraMem
 {
 	class AdvancedMemory;
+
+	class MemoryFilePool
+	{
+	public:
+		AdvancedMemory* acquire();
+
+		inline void release(AdvancedMemory* ptr);
+		inline void clear();
+
+		inline size_t size();
+	private:
+		std::list<AdvancedMemory*>			filePool;
+		std::shared_mutex					mutex;
+	};
 
 	class MemoryManager {
 	public:
@@ -48,7 +56,7 @@ namespace SoraMem
 		void copyThreadsRawPtr_AVX2(AdvancedMemory* _dst, void* _src, size_t offset, size_t _size);
 
 		unsigned							n_FileCreated = 0;
-		DWORD								dwSysGran = 0;
+		unsigned long						dwSysGran = 0;
 		std::string							tmpDir = "";
 
 		std::atomic<unsigned long long>		m_usedMem;
@@ -58,7 +66,7 @@ namespace SoraMem
 		std::unique_ptr<std::shared_mutex>	mutex = std::make_unique<std::shared_mutex>();
 
 		std::list<unsigned long>			inactiveFileID;
-		std::list<AdvancedMemory*>			filePool;
+		MemoryFilePool						filePool;
 	};
 }
 

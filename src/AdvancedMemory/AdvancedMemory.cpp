@@ -1,5 +1,7 @@
 #include "AdvancedMemory.hpp"
 
+#include <string>
+
 namespace SoraMem
 {
 
@@ -24,9 +26,6 @@ namespace SoraMem
 
 		LARGE_INTEGER newSize;
 		newSize.QuadPart = static_cast<LONGLONG>(dwFileMapStart);
-
-		/*DWORD dwHighFileMapStart = static_cast<DWORD>(dwFileMapStart >> 32);
-		dwFileMapStart &= 0xFFFFFFFF;*/
 
 		// Map the file view
 		view.lpMapAddress = MapViewOfFile(getMapHandle(), FILE_MAP_ALL_ACCESS, newSize.HighPart, newSize.LowPart, view.dwMapViewSize);
@@ -252,7 +251,7 @@ namespace SoraMem
 	{
 		closeAllPtr();
 		std::unique_lock<std::shared_mutex> lock(*mutex);
-		MemMng.addTmpInactive(m_fileID);
+		MemMng.addTmpInactive((unsigned long)m_fileID);
 		m_FileSize = 0;
 		m_fileID = 0;
 	}

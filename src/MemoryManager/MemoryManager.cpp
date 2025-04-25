@@ -1,6 +1,13 @@
 #include "MemoryManager.hpp"
 
 #include <immintrin.h>
+#include <algorithm>
+#include <thread>
+#include <iostream>
+#include <windows.h>
+#include <vector>
+
+#include "src/Timer.hpp"
 
 namespace SoraMem
 {
@@ -34,18 +41,7 @@ namespace SoraMem
 
 	void MemoryManager::createTmp(AdvancedMemory*& memPtr, const size_t& fileSize)
 	{
-		{
-			std::unique_lock<std::shared_mutex> lockFilePool(*MemMng.mutex);
-			if (!filePool.empty()) {
-				memPtr = filePool.front();
-				memPtr->resize_s(fileSize);
-				filePool.pop_front();
-				return;
-			}
-		}
-
-		AdvancedMemory* tmp = new AdvancedMemory();
-		//std::unique_lock<std::shared_mutex> lock(*tmp->mutex);
+		AdvancedMemory* tmp = filePool.acquire();
 
 		std::string dir;
 
@@ -88,7 +84,7 @@ namespace SoraMem
 
 		{
 			std::shared_lock<std::shared_mutex> lockDst(*_dst->mutex);
-			if (_dst->getFileSize() != _size) {
+			if (_dst->getFileSize() < _size) {
 				_dst->resize(_size);
 			}
 		}
@@ -133,7 +129,7 @@ namespace SoraMem
 
 		{
 			std::shared_lock<std::shared_mutex> lockDst(*_dst->mutex);
-			if (_dst->getFileSize() != _size) {
+			if (_dst->getFileSize() < _size) {
 				_dst->resize(_size);
 			}
 		}
@@ -249,7 +245,34 @@ namespace SoraMem
 	}
 
 	void MemoryManager::free(AdvancedMemory* ptr) {
+		filePool.release(ptr);
+	}
+
+	AdvancedMemory* MemoryFilePool::acquire()
+	{
+			
+		if (!filePool.empty()) {
+			std::unique_lock<std::shared_mutex> lock(mutex);
+			AdvancedMemory* memPtr = filePool.front();
+			filePool.pop_front();
+			return memPtr;
+		}
+		return new AdvancedMemory();
+	}
+
+	void MemoryFilePool::release(AdvancedMemory* ptr)
+	{
 		ptr->reset();
 		filePool.push_back(ptr);
+	}
+
+	size_t MemoryFilePool::size()
+	{
+		return filePool.size();
+	}
+
+	void MemoryFilePool::clear()
+	{
+		filePool.clear();
 	}
 }
