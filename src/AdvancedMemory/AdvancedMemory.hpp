@@ -3,6 +3,7 @@
 #define NeuroSoraCore_AdvancedMemory
 
 #include <unordered_map>
+#include <unordered_set>
 #include <list>
 #include <Windows.h>
 
@@ -10,44 +11,6 @@
 
 namespace SoraMem
 {
-	enum SoraMemMagicNumber : uint64_t
-	{
-		SMMF = 0x464D4D53,
-		SMMFCONF = ((uint64_t)0x464E4F43 << 32) | SMMF,
-		SMMFSNAP = ((uint64_t)0x50414E53 << 32) | SMMF,
-		SMMFDATA = ((uint64_t)0x41544144 << 32) | SMMF
-	};
-
-#pragma pack(push, 1)
-	struct SoraMemFileDescriptor
-	{
-		uint64_t	magic;				// Magic number defined in enum
-		uint64_t	dataSize;			// Size of data in bytes
-		uint64_t	timestamp;			// Unix timestamp
-		uint32_t	version;			// Metadata format version
-
-		uint8_t		compressionType;	// 0 = None, 1 = zstd, 2 = lz4
-		uint8_t		isCompressed;		// 0 = Not compressed, 1 = Compressed
-		uint8_t		encryptionType;		// 0 = None, 1 = AES-256 (not supported)
-		uint8_t		isEncrypted;		// 0 = Not encrypted, 1 = Encrypted
-		uint32_t	flags;				// Bitmasked flags
-		uint32_t	reservedFlags;		// Reserved for future flags
-
-		char		nextSnapshotFileName[256];
-		char		prevSnapshotFileName[256];
-		uint64_t	snapshotID;
-		uint64_t	snapshotOffset;
-		uint64_t	snapshotLength;
-
-		char		description[128];	// Optional description or label (null-terminated)
-
-		uint64_t	crc;				// CRC32/64
-
-
-		uint8_t reserved[1024 - 712];
-	};
-#pragma pack(pop)
-
 	class ViewOfAdvancedMemory;
 
 	class MMFViewPool
@@ -57,10 +20,12 @@ namespace SoraMem
 
 		inline void release(ViewOfAdvancedMemory* ptr);
 		inline void clear();
-
+		
 		inline size_t size();
 	private:
-		std::list<ViewOfAdvancedMemory*> viewPool;
+		std::vector<ViewOfAdvancedMemory*> viewPool;
+
+		std::unordered_map<ViewOfAdvancedMemory*, char> m_inUse;
 	};
 
 	class AdvancedMemory

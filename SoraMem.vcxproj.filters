@@ -21,12 +21,21 @@
     <ClCompile Include="src\memorymanager\MemoryManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\advancedmemory\AdvancedMemory.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\memorymanager\MemoryManager.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Timer.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\AdvancedMemory\SoraMemFileSpecification.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

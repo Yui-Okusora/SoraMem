@@ -126,6 +126,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\advancedmemory\AdvancedMemory.hpp" />
+    <ClInclude Include="src\AdvancedMemory\SoraMemFileSpecification.hpp" />
     <ClInclude Include="src\memorymanager\MemoryManager.hpp" />
     <ClInclude Include="src\Timer.hpp" />
   </ItemGroup>
