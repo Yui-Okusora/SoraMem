@@ -22,6 +22,7 @@
     <VCProjectVersion>17.0</VCProjectVersion>
     <ProjectGuid>{337A3038-E794-A864-974C-B7D3A5878838}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -89,6 +90,8 @@
     <ClCompile>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <WarningLevel>Level3</WarningLevel>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -127,6 +130,7 @@
   <ItemGroup>
     <ClInclude Include="src\advancedmemory\AdvancedMemory.hpp" />
     <ClInclude Include="src\AdvancedMemory\SoraMemFileSpecification.hpp" />
+    <ClInclude Include="src\MemoryManager\CRC.hpp" />
     <ClInclude Include="src\memorymanager\MemoryManager.hpp" />
     <ClInclude Include="src\Timer.hpp" />
   </ItemGroup>

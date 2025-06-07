@@ -4,255 +4,236 @@
 
 namespace SoraMem
 {
+    bool AdvancedMemory::isValid() const
+    {
+        return (m_hFile != INVALID_HANDLE_VALUE) && (m_hMapFile != INVALID_HANDLE_VALUE);
+    }
 
-	bool AdvancedMemory::isValid() const
-	{
-		return (m_hFile != INVALID_HANDLE_VALUE) && (m_hMapFile != INVALID_HANDLE_VALUE);
-	}
+    ViewOfAdvancedMemory& AdvancedMemory::_load(ViewOfAdvancedMemory& view, size_t offset, size_t size)
+    {
+        // Cache system granularity to avoid repeated calls
+        const DWORD sysGranularity = MemMng.getSysGranularity();
 
-	ViewOfAdvancedMemory& AdvancedMemory::_load(ViewOfAdvancedMemory& view, size_t offset, size_t size)
-	{
-		// Cache system granularity to avoid repeated calls
-		const DWORD sysGranularity = MemMng.getSysGranularity();
 
-		// Calculate file map start and view size
-		DWORD dwFileMapStart = static_cast<DWORD>((offset / sysGranularity) * sysGranularity);
-		view.parent = this;
-		view._offset = offset;
-		view.dwMapViewSize = static_cast<DWORD>((offset % sysGranularity) + size);
-		view.iViewDelta = static_cast<unsigned long>(offset - dwFileMapStart);
+        // Calculate file map start and view size
+        DWORD dwFileMapStart = static_cast<DWORD>((offset / sysGranularity) * sysGranularity);
+        view.parent = this;
+        view._offset = offset;
+        view.dwMapViewSize = static_cast<DWORD>((offset % sysGranularity) + size);
+        view.iViewDelta = static_cast<unsigned long>(offset - dwFileMapStart);
 
-		// Split high and low parts for 64-bit offset
 
-		LARGE_INTEGER newSize;
-		newSize.QuadPart = static_cast<LONGLONG>(dwFileMapStart);
+        // Split high and low parts for 64-bit offset
+        LARGE_INTEGER newSize;
+        newSize.QuadPart = static_cast<LONGLONG>(dwFileMapStart);
 
-		// Map the file view
-		view.lpMapAddress = MapViewOfFile(getMapHandle(), FILE_MAP_ALL_ACCESS, newSize.HighPart, newSize.LowPart, view.dwMapViewSize);
 
-		if (view.lpMapAddress == NULL) {
-			// Provide detailed error information
-			throw std::runtime_error("Failed to map view of file. Error code: " + std::to_string(GetLastError()));
-		}
+        // Map the file view
+        view.lpMapAddress = MapViewOfFile(getMapHandle(), FILE_MAP_ALL_ACCESS, newSize.HighPart, newSize.LowPart, view.dwMapViewSize);
 
-		// Update memory usage atomically
-		MemMng.getUsedMemory().fetch_add(view.dwMapViewSize, std::memory_order_relaxed);
+        if (view.lpMapAddress == NULL) {
+            throw std::runtime_error("Failed to map view of file. Error code: " + std::to_string(GetLastError()));
+        }
 
-		return view;
-	}
+        // Update memory usage atomically
+        MemMng.getUsedMemory().fetch_add(view.dwMapViewSize, std::memory_order_relaxed);
 
-	ViewOfAdvancedMemory& AdvancedMemory::load(size_t offset, size_t size)
-	{
-		if (!isValid()) {
-			throw std::invalid_argument("Invalid file or map handle.");
-		}
+        return view;
+    }
 
-		if (offset >= getAllocatedSize()) {
-			throw std::out_of_range("Offset exceeds file size. File size: " + std::to_string(getAllocatedSize()) + ", Offset: " + std::to_string(offset));
-		}
+    ViewOfAdvancedMemory& AdvancedMemory::load(size_t offset, size_t size)
+    {
+        if (!isValid()) {
+            throw std::invalid_argument("Invalid file or map handle.");
+        }
 
-		// Adjust size if it exceeds file boundaries
-		if (offset + size > getAllocatedSize()) {
-			size = getAllocatedSize() - offset;
-		}
+        if (offset + size >= getFileSize()) {
+            throw std::out_of_range("Offset exceeds file size. File size: " + std::to_string(getFileSize()) + ", Offset: " + std::to_string(offset));
+        }
 
-		ViewOfAdvancedMemory view;
-		_load(view, offset, size);
+        ViewOfAdvancedMemory view;
+        _load(view, offset, size);
 
-		// Use emplace for efficient insertion
-		auto &it = views.emplace(view.lpMapAddress, view);
-		return it.first->second;
-	}
+        // Use emplace for efficient insertion
+        return views.emplace(view.lpMapAddress, view).first->second;
+    }
 
-	ViewOfAdvancedMemory& AdvancedMemory::load_s(size_t offset, size_t size)
-	{
-		{
-			std::shared_lock<std::shared_mutex> lock(*mutex);
-			if (!isValid()) {
-				throw std::invalid_argument("Invalid file or map handle.");
-			}
-		}
+    ViewOfAdvancedMemory& AdvancedMemory::load_s(size_t offset, size_t size)
+    {
+        {
+            std::shared_lock<std::shared_mutex> lock(*mutex);
+            if (!isValid()) {
+                throw std::invalid_argument("Invalid file or map handle.");
+            }
+        }
 
-		if (offset >= getAllocatedSize()) {
-			throw std::out_of_range("Offset exceeds file size. File size: " + std::to_string(getAllocatedSize()) + ", Offset: " + std::to_string(offset));
-		}
+        if (offset + size >= getFileSize()) {
+            throw std::out_of_range("Offset exceeds file size. File size: " + std::to_string(getFileSize()) + ", Offset: " + std::to_string(offset));
+        }
 
-		if (offset + size > getAllocatedSize()) {
-			size = getAllocatedSize() - offset;
-		}
+        ViewOfAdvancedMemory view;
+        {
+            std::unique_lock<std::shared_mutex> lock(*view.mutex);
+            _load(view, offset, size);
+        }
 
-		ViewOfAdvancedMemory view;
-		{
-			std::unique_lock<std::shared_mutex> lock(*view.mutex);
-			_load(view, offset, size);
-		}
+        {
+            std::unique_lock<std::shared_mutex> lock(*mutex);
+            return views.emplace(view.lpMapAddress, view).first->second;
+        }
+    }
 
-		{
-			std::unique_lock<std::shared_mutex> lock(*mutex);
-			auto it = views.emplace(view.lpMapAddress, view);
-			return it.first->second;
-		}
-	}
+    void AdvancedMemory::resize(const size_t& fileSize)
+    {
+        // Align file size up to the next multiple of alignment
+        size_t alignedSize = (fileSize + alignment - 1) & ~(alignment - 1);
 
-	void AdvancedMemory::resize(const size_t& fileSize)
-	{
-		const size_t alignment = 1024; // System granularity size
 
-		// Align file size up to the next multiple of alignment
-		size_t alignedSize = (fileSize + alignment - 1) & ~(alignment - 1);
+        if (alignedSize == m_fileSize) {
+            return; // No need to resize if the size is unchanged
+        }
 
-		m_AllocatedSize = fileSize;
+        unloadAll();
 
-		if (alignedSize == m_FileSize) {
-			return; // No need to resize if the size is unchanged
-		}
+        HANDLE& mapHandle = getMapHandle();
+        HANDLE& fileHandle = getFileHandle();
 
-		unloadAll();
+        if (mapHandle != NULL) {
+            CloseHandle(mapHandle);
+        }
 
-		HANDLE& mapHandle = getMapHandle();
-		HANDLE& fileHandle = getFileHandle();
+        LARGE_INTEGER newSize;
+        newSize.QuadPart = static_cast<LONGLONG>(alignedSize);
 
-		if (mapHandle != NULL) {
-			CloseHandle(mapHandle);
-		}
+        if (!SetFilePointerEx(fileHandle, newSize, NULL, FILE_BEGIN) || !SetEndOfFile(fileHandle)) {
+            throw std::runtime_error("Failed to resize file to " + std::to_string(alignedSize) + " bytes. Error code: " + std::to_string(GetLastError()));
+        }
 
-		LARGE_INTEGER newSize;
-		newSize.QuadPart = static_cast<LONGLONG>(alignedSize);
+        m_fileSize = alignedSize;
+        createMapObj();
+    }
 
-		if (!SetFilePointerEx(fileHandle, newSize, NULL, FILE_BEGIN) || !SetEndOfFile(fileHandle)) {
-			throw std::runtime_error("Failed to resize file to " + std::to_string(alignedSize) + " bytes. Error code: " + std::to_string(GetLastError()));
-		}
+    void AdvancedMemory::resize_s(const size_t& fileSize)
+    {
+        std::unique_lock<std::shared_mutex> lock(*mutex);
+        resize(fileSize);
+    }
 
-		m_FileSize = alignedSize;
-		createMapObj();
-	}
+    void AdvancedMemory::createMapObj()
+    {
+        getMapHandle() = CreateFileMapping(getFileHandle(), NULL, PAGE_READWRITE, 0, 0, NULL);
+    }
 
-	void AdvancedMemory::resize_s(const size_t& fileSize)
-	{
-		std::unique_lock<std::shared_mutex> lock(*mutex);
-		resize(fileSize);
-	}
+    void AdvancedMemory::createMapObj_s()
+    {
+        std::unique_lock<std::shared_mutex> lock(*mutex);
+        createMapObj();
+    }
 
-	void AdvancedMemory::createMapObj()
-	{
-		getMapHandle() = CreateFileMapping(getFileHandle(), NULL, PAGE_READWRITE, 0, 0, NULL);
-	}
+    void AdvancedMemory::unload(ViewOfAdvancedMemory& view)
+    {
+        auto it = views.find(view.lpMapAddress);
+        if (it == views.end()) {
+            return; // View not found
+        }
 
-	void AdvancedMemory::createMapObj_s()
-	{
-		std::unique_lock<std::shared_mutex> lock(*mutex);
-		createMapObj();
-	}
+        MemMng.getUsedMemory().fetch_sub(view.dwMapViewSize, std::memory_order_relaxed);
 
-	void AdvancedMemory::unload(ViewOfAdvancedMemory& view)
-	{
-		auto it = views.find(view.lpMapAddress);
-		if (it == views.end()) {
-			return; // View not found
-		}
+        UnmapViewOfFile(view.lpMapAddress);
+        views.erase(it);
+    }
 
-		MemMng.getUsedMemory().fetch_sub(view.dwMapViewSize, std::memory_order_relaxed);
+    void AdvancedMemory::unload_s(ViewOfAdvancedMemory& view)
+    {
+        std::unique_lock<std::shared_mutex> lock(*mutex);
+        unload(view);
+    }
 
-		UnmapViewOfFile(view.lpMapAddress);
-		views.erase(it);
-	}
+    void AdvancedMemory::unloadAll()
+    {
+        size_t totalFreedMemory = 0;
 
-	void AdvancedMemory::unload_s(ViewOfAdvancedMemory& view)
-	{
-		std::unique_lock<std::shared_mutex> lock(*mutex);
-		unload(view);
-	}
+        for (auto it = views.begin(); it != views.end(); ) {
+            totalFreedMemory += it->second.dwMapViewSize;
+            UnmapViewOfFile(it->second.lpMapAddress);
+            it = views.erase(it); // Efficiently erase while iterating
+        }
 
-	void AdvancedMemory::unloadAll()
-	{
-		size_t totalFreedMemory = 0;
+        MemMng.getUsedMemory().fetch_sub(totalFreedMemory, std::memory_order_relaxed);
+    }
 
-		for (auto it = views.begin(); it != views.end(); ) {
-			totalFreedMemory += it->second.dwMapViewSize;
-			UnmapViewOfFile(it->second.lpMapAddress);
-			it = views.erase(it); // Efficiently erase while iterating
-		}
+    void AdvancedMemory::unloadAll_s()
+    {
+        std::unique_lock<std::shared_mutex> lock(*mutex);
+        unloadAll();
+    }
 
-		MemMng.getUsedMemory().fetch_sub(totalFreedMemory, std::memory_order_relaxed);
-	}
+    void AdvancedMemory::closeAllPtr()
+    {
+        unloadAll();
+        if (getMapHandle() != NULL) {
+            CloseHandle(getMapHandle());
+            getMapHandle() = NULL;
+        }
+        if (getFileHandle() != NULL) {
+            CloseHandle(getFileHandle());
+            getFileHandle() = NULL;
+        }
+    }
 
-	void AdvancedMemory::unloadAll_s()
-	{
-		std::unique_lock<std::shared_mutex> lock(*mutex);
-		unloadAll();
-	}
+    void AdvancedMemory::closeAllPtr_s()
+    {
+        std::unique_lock<std::shared_mutex> lock(*mutex);
+        closeAllPtr();
+    }
 
-	void AdvancedMemory::closeAllPtr()
-	{
-		unloadAll();
-		if (getMapHandle() != NULL) {
-			CloseHandle(getMapHandle());
-			getMapHandle() = NULL;
-		}
-		if (getFileHandle() != NULL) {
-			CloseHandle(getFileHandle());
-			getFileHandle() = NULL;
-		}
-	}
+    void* AdvancedMemory::getViewPtr(const ViewOfAdvancedMemory& view) const
+    {
+        return (char*)view.lpMapAddress + view.iViewDelta;
+    }
 
-	void AdvancedMemory::closeAllPtr_s()
-	{
-		std::unique_lock<std::shared_mutex> lock(*mutex);
-		closeAllPtr();
-	}
+    void* AdvancedMemory::getViewPtr_s(const ViewOfAdvancedMemory& view) const
+    {
+        std::unique_lock<std::shared_mutex> lock(*view.mutex);
+        return getViewPtr(view);
+    }
 
-	void* AdvancedMemory::getViewPtr(const ViewOfAdvancedMemory& view) const
-	{
-		return (char*)view.lpMapAddress + view.iViewDelta;
-	}
+    const size_t& AdvancedMemory::getFileSize() const
+    {
+        return m_fileSize;
+    }
 
-	void* AdvancedMemory::getViewPtr_s(const ViewOfAdvancedMemory& view) const
-	{
-		std::unique_lock<std::shared_mutex> lock(*view.mutex);
-		return getViewPtr(view);
-	}
+    const size_t& AdvancedMemory::getFileSize_s() const
+    {
+        std::shared_lock<std::shared_mutex> lock(*mutex);
+        return getFileSize();
+    }
 
-	const size_t& AdvancedMemory::getFileSize() const
-	{
-		return m_FileSize;
-	}
+    size_t AdvancedMemory::getID() const
+    {
+        return m_fileID;
+    }
 
-	const size_t& AdvancedMemory::getFileSize_s() const
-	{
-		std::shared_lock<std::shared_mutex> lock(*mutex);
-		return getFileSize();
-	}
+    size_t AdvancedMemory::getID_s() const
+    {
+        std::shared_lock<std::shared_mutex> lock(*mutex);
+        return getID();
+    }
 
-	const size_t& AdvancedMemory::getAllocatedSize() const
-	{
-		return m_AllocatedSize;
-	}
+    void AdvancedMemory::reset()
+    {
+        unloadAll_s();
+        CloseHandle(getMapHandle());
+        getMapHandle() = NULL;
+        m_fileSize = 0;
+    }
 
-	size_t AdvancedMemory::getID() const
-	{
-		return m_fileID;
-	}
-
-	size_t AdvancedMemory::getID_s() const
-	{
-		std::shared_lock<std::shared_mutex> lock(*mutex);
-		return getID();
-	}
-
-	void AdvancedMemory::reset()
-	{
-		unloadAll_s();
-		CloseHandle(getMapHandle());
-		getMapHandle() = NULL;
-		m_FileSize = 0;
-	}
-
-	AdvancedMemory::~AdvancedMemory()
-	{
-		closeAllPtr();
-		std::unique_lock<std::shared_mutex> lock(*mutex);
-		MemMng.addTmpInactive((unsigned long)m_fileID);
-		m_FileSize = 0;
-		m_fileID = 0;
-	}
+    AdvancedMemory::~AdvancedMemory()
+    {
+        closeAllPtr();
+        std::unique_lock<std::shared_mutex> lock(*mutex);
+        MemMng.addTmpInactive((unsigned long)m_fileID);
+        m_fileSize = 0;
+        m_fileID = 0;
+    }
 }
