@@ -1,15 +1,15 @@
-#include "AdvancedMemory.hpp"
+#include "MMFile.hpp"
 
 #include <string>
 
 namespace SoraMem
 {
-    bool AdvancedMemory::isValid() const
+    bool MMFile::isValid() const
     {
         return (m_hFile != INVALID_HANDLE_VALUE) && (m_hMapFile != INVALID_HANDLE_VALUE);
     }
 
-    ViewOfAdvancedMemory& AdvancedMemory::_load(ViewOfAdvancedMemory& view, size_t offset, size_t size)
+    MemView& MMFile::_load(MemView& view, size_t offset, size_t size)
     {
         // Cache system granularity to avoid repeated calls
         const DWORD sysGranularity = MemMng.getSysGranularity();
@@ -41,7 +41,7 @@ namespace SoraMem
         return view;
     }
 
-    ViewOfAdvancedMemory& AdvancedMemory::load(size_t offset, size_t size)
+    MemView& MMFile::load(size_t offset, size_t size)
     {
         if (!isValid()) {
             throw std::invalid_argument("Invalid file or map handle.");
@@ -51,14 +51,14 @@ namespace SoraMem
             throw std::out_of_range("Offset exceeds file size. File size: " + std::to_string(getFileSize()) + ", Offset: " + std::to_string(offset));
         }
 
-        ViewOfAdvancedMemory view;
+        MemView view;
         _load(view, offset, size);
 
         // Use emplace for efficient insertion
         return views.emplace(view.lpMapAddress, view).first->second;
     }
 
-    ViewOfAdvancedMemory& AdvancedMemory::load_s(size_t offset, size_t size)
+    MemView& MMFile::load_s(size_t offset, size_t size)
     {
         {
             std::shared_lock<std::shared_mutex> lock(*mutex);
@@ -71,7 +71,7 @@ namespace SoraMem
             throw std::out_of_range("Offset exceeds file size. File size: " + std::to_string(getFileSize()) + ", Offset: " + std::to_string(offset));
         }
 
-        ViewOfAdvancedMemory view;
+        MemView view;
         {
             std::unique_lock<std::shared_mutex> lock(*view.mutex);
             _load(view, offset, size);
@@ -83,7 +83,7 @@ namespace SoraMem
         }
     }
 
-    void AdvancedMemory::resize(const size_t& fileSize)
+    void MMFile::resize(const size_t& fileSize)
     {
         // Align file size up to the next multiple of alignment
         size_t alignedSize = (fileSize + alignment - 1) & ~(alignment - 1);
@@ -113,24 +113,24 @@ namespace SoraMem
         createMapObj();
     }
 
-    void AdvancedMemory::resize_s(const size_t& fileSize)
+    void MMFile::resize_s(const size_t& fileSize)
     {
         std::unique_lock<std::shared_mutex> lock(*mutex);
         resize(fileSize);
     }
 
-    void AdvancedMemory::createMapObj()
+    void MMFile::createMapObj()
     {
         getMapHandle() = CreateFileMapping(getFileHandle(), NULL, PAGE_READWRITE, 0, 0, NULL);
     }
 
-    void AdvancedMemory::createMapObj_s()
+    void MMFile::createMapObj_s()
     {
         std::unique_lock<std::shared_mutex> lock(*mutex);
         createMapObj();
     }
 
-    void AdvancedMemory::unload(ViewOfAdvancedMemory& view)
+    void MMFile::unload(MemView& view)
     {
         auto it = views.find(view.lpMapAddress);
         if (it == views.end()) {
@@ -143,13 +143,13 @@ namespace SoraMem
         views.erase(it);
     }
 
-    void AdvancedMemory::unload_s(ViewOfAdvancedMemory& view)
+    void MMFile::unload_s(MemView& view)
     {
         std::unique_lock<std::shared_mutex> lock(*mutex);
         unload(view);
     }
 
-    void AdvancedMemory::unloadAll()
+    void MMFile::unloadAll()
     {
         size_t totalFreedMemory = 0;
 
@@ -162,13 +162,13 @@ namespace SoraMem
         MemMng.getUsedMemory().fetch_sub(totalFreedMemory, std::memory_order_relaxed);
     }
 
-    void AdvancedMemory::unloadAll_s()
+    void MMFile::unloadAll_s()
     {
         std::unique_lock<std::shared_mutex> lock(*mutex);
         unloadAll();
     }
 
-    void AdvancedMemory::closeAllPtr()
+    void MMFile::closeAllPtr()
     {
         unloadAll();
         if (getMapHandle() != NULL) {
@@ -181,46 +181,46 @@ namespace SoraMem
         }
     }
 
-    void AdvancedMemory::closeAllPtr_s()
+    void MMFile::closeAllPtr_s()
     {
         std::unique_lock<std::shared_mutex> lock(*mutex);
         closeAllPtr();
     }
 
-    void* AdvancedMemory::getViewPtr(const ViewOfAdvancedMemory& view) const
+    void* MMFile::getViewPtr(const MemView& view) const
     {
         return (char*)view.lpMapAddress + view.iViewDelta;
     }
 
-    void* AdvancedMemory::getViewPtr_s(const ViewOfAdvancedMemory& view) const
+    void* MMFile::getViewPtr_s(const MemView& view) const
     {
         std::unique_lock<std::shared_mutex> lock(*view.mutex);
         return getViewPtr(view);
     }
 
-    const size_t& AdvancedMemory::getFileSize() const
+    const size_t& MMFile::getFileSize() const
     {
         return m_fileSize;
     }
 
-    const size_t& AdvancedMemory::getFileSize_s() const
+    const size_t& MMFile::getFileSize_s() const
     {
         std::shared_lock<std::shared_mutex> lock(*mutex);
         return getFileSize();
     }
 
-    size_t AdvancedMemory::getID() const
+    size_t MMFile::getID() const
     {
         return m_fileID;
     }
 
-    size_t AdvancedMemory::getID_s() const
+    size_t MMFile::getID_s() const
     {
         std::shared_lock<std::shared_mutex> lock(*mutex);
         return getID();
     }
 
-    void AdvancedMemory::reset()
+    void MMFile::reset()
     {
         unloadAll_s();
         CloseHandle(getMapHandle());
@@ -228,7 +228,7 @@ namespace SoraMem
         m_fileSize = 0;
     }
 
-    AdvancedMemory::~AdvancedMemory()
+    MMFile::~MMFile()
     {
         closeAllPtr();
         std::unique_lock<std::shared_mutex> lock(*mutex);

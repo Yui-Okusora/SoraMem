@@ -123,13 +123,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\advancedmemory\AdvancedMemory.cpp" />
+    <ClCompile Include="src\MMFile\MMFile.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\memorymanager\MemoryManager.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\advancedmemory\AdvancedMemory.hpp" />
-    <ClInclude Include="src\AdvancedMemory\SoraMemFileSpecification.hpp" />
+    <ClInclude Include="src\MMFile\MMFile.hpp" />
+    <ClInclude Include="src\MMFile\SoraMemFileSpecification.hpp" />
     <ClInclude Include="src\MemoryManager\CRC.hpp" />
     <ClInclude Include="src\memorymanager\MemoryManager.hpp" />
     <ClInclude Include="src\Timer.hpp" />

@@ -4,22 +4,22 @@
 #include <shared_mutex>
 #include <list>
 
-#include "src/AdvancedMemory/AdvancedMemory.hpp"
+#include "src/MMFile/MMFile.hpp"
 
 namespace SoraMem
 {
-    class AdvancedMemory;
+    class MMFile;
 
     class MemoryFilePool{
     public:
-        AdvancedMemory* acquire();
+        MMFile* acquire();
 
-        inline void release(AdvancedMemory* ptr);
+        inline void release(MMFile* ptr);
         inline void clear();
 
         inline size_t size();
     private:
-        std::list<AdvancedMemory*>			filePool;
+        std::list<MMFile*>			filePool;
         std::shared_mutex					mutex;
     };
 
@@ -33,20 +33,20 @@ namespace SoraMem
         void operator=(MemoryManager const&) = delete;
 
 
-        void createTmp(AdvancedMemory*& memPtr, const size_t& fileSize);
-        void createPmnt(AdvancedMemory* memPtr, const size_t& fileSize);
+        void createTmp(MMFile*& memPtr, const size_t& fileSize);
+        void createPmnt(MMFile* memPtr, const size_t& fileSize);
 
 
-        void memcopy_AVX2(AdvancedMemory*& _dst, void* _src, const size_t& _size);
+        void memcopy_AVX2(MMFile*& _dst, void* _src, const size_t& _size);
 
 
-        void memcopy(AdvancedMemory*& _dst, void* _src, const size_t& _size);
-        void memcopy(AdvancedMemory*& _dst, AdvancedMemory* _src, const short& _typeSize, const size_t& _size);
+        void memcopy(MMFile*& _dst, void* _src, const size_t& _size);
+        void memcopy(MMFile*& _dst, MMFile* _src, const short& _typeSize, const size_t& _size);
         
 
-        void move(AdvancedMemory* _dst, AdvancedMemory* _src);
+        void move(MMFile* _dst, MMFile* _src);
 
-        void free(AdvancedMemory* ptr);
+        void free(MMFile* ptr);
         void addTmpInactive(const unsigned long& id) { inactiveFileID.emplace_back(id); }
         
         
@@ -57,8 +57,8 @@ namespace SoraMem
     
     private:
         MemoryManager() {};
-        void copyThreadsRawPtr(AdvancedMemory* _dst, void* _src, size_t offset, size_t _size);
-        void copyThreadsRawPtr_AVX2(AdvancedMemory* _dst, void* _src, size_t offset, size_t _size);
+        void copyThreadsRawPtr(MMFile* _dst, void* _src, size_t offset, size_t _size);
+        void copyThreadsRawPtr_AVX2(MMFile* _dst, void* _src, size_t offset, size_t _size);
 
         unsigned							n_FileCreated = 0;
         unsigned long						dwSysGran = 0;

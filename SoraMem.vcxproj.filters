@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\advancedmemory\AdvancedMemory.cpp">
+    <ClCompile Include="src\MMFile\MMFile.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\memorymanager\MemoryManager.cpp">
@@ -26,7 +26,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\advancedmemory\AdvancedMemory.hpp">
+    <ClInclude Include="src\MMFile\MMFile.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\memorymanager\MemoryManager.hpp">
@@ -35,7 +35,7 @@
     <ClInclude Include="src\Timer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\AdvancedMemory\SoraMemFileSpecification.hpp">
+    <ClInclude Include="src\MMFile\SoraMemFileSpecification.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\MemoryManager\CRC.hpp">
