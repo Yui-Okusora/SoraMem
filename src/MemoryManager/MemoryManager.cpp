@@ -39,9 +39,9 @@ namespace SoraMem
         }
     }
 
-    void MemoryManager::createTmp(AdvancedMemory*& memPtr, const size_t& fileSize)
+    void MemoryManager::createTmp(MMFile*& memPtr, const size_t& fileSize)
     {
-        AdvancedMemory* tmp = filePool.acquire();
+        MMFile* tmp = filePool.acquire();
 
         std::string dir;
 
@@ -71,12 +71,12 @@ namespace SoraMem
         memPtr = tmp;
     }
 
-    void MemoryManager::createPmnt(AdvancedMemory* memPtr, const size_t& fileSize)
+    void MemoryManager::createPmnt(MMFile* memPtr, const size_t& fileSize)
     {
-        AdvancedMemory& tmp = *memPtr;
+        MMFile& tmp = *memPtr;
     }
 
-    void MemoryManager::memcopy_AVX2(AdvancedMemory*& _dst, void* _src, const size_t& _size)
+    void MemoryManager::memcopy_AVX2(MMFile*& _dst, void* _src, const size_t& _size)
     {
         if (_dst == nullptr) {
             MemMng.createTmp(_dst, _size);
@@ -121,7 +121,7 @@ namespace SoraMem
         }
     }
 
-    void MemoryManager::memcopy(AdvancedMemory*& _dst, void* _src, const size_t& _size)
+    void MemoryManager::memcopy(MMFile*& _dst, void* _src, const size_t& _size)
     {
         if (_dst == nullptr) {
             MemMng.createTmp(_dst, _size);
@@ -153,7 +153,7 @@ namespace SoraMem
         }
     }
 
-    void MemoryManager::memcopy(AdvancedMemory*& _dst, AdvancedMemory* _src, const short& _typeSize, const size_t& _size)
+    void MemoryManager::memcopy(MMFile*& _dst, MMFile* _src, const short& _typeSize, const size_t& _size)
     {
         Timer timer("MemoryManager::memcopy");
         if (_dst == NULL) MemMng.createTmp(_dst, _size);
@@ -189,17 +189,17 @@ namespace SoraMem
         _src->createMapObj();
     }
 
-    void MemoryManager::copyThreadsRawPtr(AdvancedMemory* _dst, void* _src, size_t offset, size_t _size)
+    void MemoryManager::copyThreadsRawPtr(MMFile* _dst, void* _src, size_t offset, size_t _size)
     {
-        ViewOfAdvancedMemory& dstView = _dst->load_s(offset, _size);
+        MemView& dstView = _dst->load_s(offset, _size);
         memcpy(_dst->getViewPtr_s(dstView), (char*)_src + offset, _size);
         _dst->unload_s(dstView);
     }
 
-    void MemoryManager::copyThreadsRawPtr_AVX2(AdvancedMemory* _dst, void* _src, size_t offset, size_t _size)
+    void MemoryManager::copyThreadsRawPtr_AVX2(MMFile* _dst, void* _src, size_t offset, size_t _size)
     {
         // Load destination view
-        ViewOfAdvancedMemory& dstView = _dst->load_s(offset, _size);
+        MemView& dstView = _dst->load_s(offset, _size);
 
         uint8_t* dstPtr = (uint8_t*)_dst->getViewPtr_s(dstView);
         uint8_t* srcPtr = (uint8_t*)_src + offset;
@@ -224,7 +224,7 @@ namespace SoraMem
         _dst->unload_s(dstView);
     }
 
-    void MemoryManager::move(AdvancedMemory* _dst, AdvancedMemory* _src)
+    void MemoryManager::move(MMFile* _dst, MMFile* _src)
     {
         HANDLE thisProcess = GetCurrentProcess();
         _dst->closeAllPtr();
@@ -244,23 +244,23 @@ namespace SoraMem
         _src->closeAllPtr();
     }
 
-    void MemoryManager::free(AdvancedMemory* ptr) {
+    void MemoryManager::free(MMFile* ptr) {
         filePool.release(ptr);
     }
 
-    AdvancedMemory* MemoryFilePool::acquire()
+    MMFile* MemoryFilePool::acquire()
     {
             
         if (!filePool.empty()) {
             std::unique_lock<std::shared_mutex> lock(mutex);
-            AdvancedMemory* memPtr = filePool.front();
+            MMFile* memPtr = filePool.front();
             filePool.pop_front();
             return memPtr;
         }
-        return new AdvancedMemory();
+        return new MMFile();
     }
 
-    void MemoryFilePool::release(AdvancedMemory* ptr)
+    void MemoryFilePool::release(MMFile* ptr)
     {
         ptr->reset();
         filePool.push_back(ptr);
