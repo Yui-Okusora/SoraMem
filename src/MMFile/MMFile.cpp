@@ -47,7 +47,7 @@ namespace SoraMem
             throw std::invalid_argument("Invalid file or map handle.");
         }
 
-        if (offset + size >= getFileSize()) {
+        if (offset + size > getFileSize()) {
             throw std::out_of_range("Offset exceeds file size. File size: " + std::to_string(getFileSize()) + ", Offset: " + std::to_string(offset));
         }
 
@@ -55,7 +55,9 @@ namespace SoraMem
         _load(view, offset, size);
 
         // Use emplace for efficient insertion
-        return views.emplace(view.lpMapAddress, view).first->second;
+        auto& it = views.emplace(view.lpMapAddress, view).first->second;
+        view.lpMapAddress = nullptr;
+        return it;
     }
 
     MemView& MMFile::load_s(size_t offset, size_t size)
@@ -67,7 +69,7 @@ namespace SoraMem
             }
         }
 
-        if (offset + size >= getFileSize()) {
+        if (offset + size > getFileSize()) {
             throw std::out_of_range("Offset exceeds file size. File size: " + std::to_string(getFileSize()) + ", Offset: " + std::to_string(offset));
         }
 
@@ -79,7 +81,9 @@ namespace SoraMem
 
         {
             std::unique_lock<std::shared_mutex> lock(*mutex);
-            return views.emplace(view.lpMapAddress, view).first->second;
+            auto& it = views.emplace(view.lpMapAddress, view).first->second;
+            view.lpMapAddress = nullptr;
+            return it;
         }
     }
 
@@ -235,5 +239,10 @@ namespace SoraMem
         MemMng.addTmpInactive((unsigned long)m_fileID);
         m_fileSize = 0;
         m_fileID = 0;
+    }
+
+    MemView::~MemView()
+    {
+        parent->unload(*this);
     }
 }

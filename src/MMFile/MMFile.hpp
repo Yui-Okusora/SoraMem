@@ -14,26 +14,35 @@ namespace SoraMem
     public:
         MemView& operator=(const MemView& view)
         {
-            lpMapAddress = view.lpMapAddress;
-            dwMapViewSize = view.dwMapViewSize;
-            iViewDelta = view.iViewDelta;
-            _offset = view._offset;
-            parent = view.parent;
+            lpMapAddress    = view.lpMapAddress;
+            dwMapViewSize   = view.dwMapViewSize;
+            iViewDelta      = view.iViewDelta;
+            _offset         = view._offset;
+            parent          = view.parent;
             return *this;
+        }
+
+        void* getPtr() { return (char*)lpMapAddress + iViewDelta; }
+
+        template<typename T>
+        T& at(size_t index)
+        {
+            if (index >= (static_cast<size_t>(dwMapViewSize) - iViewDelta) / sizeof(T)) {
+                throw std::out_of_range("Index out of range");
+            }
+            return *(reinterpret_cast<T*>(getPtr()) + index);
         }
 
         friend class MMFile;
 
-        LPVOID					lpMapAddress = nullptr;		// first address of the mapped view
-        DWORD					dwMapViewSize = 0;			// the size of the view
-        unsigned long			iViewDelta = 0;
-        unsigned long long		_offset = 0;
+        LPVOID                  lpMapAddress = nullptr;		// first address of the mapped view
+        DWORD                   dwMapViewSize = 0;			// the size of the view
+        unsigned long			iViewDelta = 0;             // Offset from lpMapAddr
+        unsigned long long		_offset = 0;                // Offset from origin
 
         MMFile* parent = nullptr;
 
-        ~MemView()
-        {
-        }
+        ~MemView();
     private:
         std::shared_ptr<std::shared_mutex> mutex = std::make_shared<std::shared_mutex>();
     };
@@ -43,19 +52,19 @@ namespace SoraMem
     public:
         friend class MemoryManager;
 
-        MemView&	            load(size_t offset, size_t size); // offset and size in bytes
-        void					unload(MemView& view);
-        void					unloadAll();
-        void					resize(const size_t& fileSize); // in bytes
-        void					reset();
+        MemView&                load(size_t offset, size_t size); // offset and size in bytes
+        void                    unload(MemView& view);
+        void                    unloadAll();
+        void                    resize(const size_t& fileSize); // in bytes
+        void                    reset();
 
-        void*					getViewPtr(const MemView& view) const;
+        void*                   getViewPtr(const MemView& view) const;
 
-        bool					isValid() const;
-        const size_t&			getFileSize() const;
+        bool                    isValid() const;
+        const size_t&           getFileSize() const;
 
-        inline size_t			getID() const;
-        inline void				createMapObj();
+        inline size_t           getID() const;
+        inline void             createMapObj();
 
 
         template<typename T>
@@ -72,17 +81,17 @@ namespace SoraMem
 
         //--------- Thread-safe methods ----------
 
-        MemView&	            load_s(size_t offset, size_t size); // offset and size in bytes
+        MemView&                load_s(size_t offset, size_t size); // offset and size in bytes
 
-        void					unload_s(MemView& view);
-        void					unloadAll_s();
-        void					resize_s(const size_t& fileSize); // in bytes
-        void					createMapObj_s();
+        void                    unload_s(MemView& view);
+        void                    unloadAll_s();
+        void                    resize_s(const size_t& fileSize); // in bytes
+        void                    createMapObj_s();
 
-        void*					getViewPtr_s(const MemView& view) const;
+        void*                   getViewPtr_s(const MemView& view) const;
 
-        inline const size_t&	getFileSize_s() const;
-        inline size_t			getID_s() const;
+        inline const size_t&    getFileSize_s() const;
+        inline size_t           getID_s() const;
 
 
         template<typename T>
@@ -106,14 +115,13 @@ namespace SoraMem
         }
 
     private:
-        MemView&	            _load(MemView& view, size_t offset, size_t size);
+        MemView&                _load(MemView& view, size_t offset, size_t size);
 
-        void					closeAllPtr();
-        void					closeAllPtr_s();
+        void                    closeAllPtr();
+        void                    closeAllPtr_s();
 
         inline HANDLE&          getFileHandle() { return m_hFile; }
         inline HANDLE&          getMapHandle()  { return m_hMapFile; }
-
 
 
         //--- Member Variables
@@ -121,7 +129,7 @@ namespace SoraMem
         HANDLE m_hMapFile = NULL;       // handle for the file's memory-mapped region
         HANDLE m_hFile = NULL;          // the file handle
 
-        size_t m_fileSize = 0;		    // temporary storage for file sizes  
+        size_t m_fileSize = 0;          // temporary storage for file sizes  
         size_t m_fileID = 0;
 
         const size_t alignment = 1024;  // Standard file alignment in bytes
@@ -131,8 +139,3 @@ namespace SoraMem
     };
 
 }
-
-
-
-
-

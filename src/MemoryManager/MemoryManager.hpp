@@ -60,6 +60,10 @@ namespace SoraMem
         void copyThreadsRawPtr(MMFile* _dst, void* _src, size_t offset, size_t _size);
         void copyThreadsRawPtr_AVX2(MMFile* _dst, void* _src, size_t offset, size_t _size);
 
+#ifdef TESTING
+    public:
+#endif // TESTING
+
         unsigned							n_FileCreated = 0;
         unsigned long						dwSysGran = 0;
         std::string							tmpDir = "";

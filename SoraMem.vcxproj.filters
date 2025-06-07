@@ -21,7 +21,7 @@
     <ClCompile Include="src\memorymanager\MemoryManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cpp">
+    <ClCompile Include="src\Testing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -111,7 +111,7 @@ namespace SoraMem
 
             size_t actualSize = (std::min)(chunkSize, _size - offset); // Clamp at the end
 
-            threads.emplace_back(&MemoryManager::copyThreadsRawPtr, this, _dst, _src, offset, actualSize);
+            threads.emplace_back(&MemoryManager::copyThreadsRawPtr_AVX2, this, _dst, _src, offset, actualSize);
         }
 
         for (auto& thread : threads) {
@@ -216,9 +216,10 @@ namespace SoraMem
         }
 
         // Handle any remaining bytes that are less than 32 bytes
-        for (; i < _size; ++i) {
+        /*for (; i < _size; ++i) {
             dstPtr[i] = srcPtr[i];
-        }
+        }*/
+        if(i < _size) memcpy(&dstPtr[i], &srcPtr[i], _size - i - 1);
 
         // Unload destination view
         _dst->unload_s(dstView);
