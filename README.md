@@ -23,7 +23,7 @@ Memory of the night sky
 - Align file sizes to system granularity (e.g., 64 KB).
 - Align memory allocations to 32/64/512 bytes for SIMD compatibility.
 
-### 5. Branchless Logic
+### 5. Branchless Logic ✅
 - Replace `if/else` with ternary or arithmetic-based logic in performance-critical sections.
 
 ### 6. (Optional) Copy-on-Write Views
@@ -83,11 +83,11 @@ Memory of the night sky
 - Use `Zstd` (high compression, fast decompression) or `LZ4` (ultra-fast).
 - Apply to archival or non-active save files.
 
-### 6. Metadata & Signature Blocks
-- Add magic headers, file IDs, and hashes to file footers.
+### 6. Metadata & Signature Blocks ✅
+- Add magic numbers, file IDs, and hashes to file headers.
 - Verify during load to detect corruption or format mismatch.
 
-### 7. Namespacing and Modularization
+### 7. Namespacing and Modularization ✅
 - Use a universal namespace (e.g., `okusora::`, `soramem::`).
 - Split independent features (e.g., hashing, memory pooling, compression) into separate files/modules.
 
