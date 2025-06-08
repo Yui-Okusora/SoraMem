@@ -7,6 +7,7 @@
 
 namespace SoraMem
 {
+
     class MMFile;
 
     class MemView
@@ -22,16 +23,19 @@ namespace SoraMem
             return *this;
         }
 
-        void* getPtr() { return (char*)lpMapAddress + iViewDelta; }
+        void* getPtr() { return (char*)lpMapAddress + iViewDelta;}
+        uint64_t getAllocatedViewSize() { return static_cast<uint64_t>(dwMapViewSize) - iViewDelta;}
 
         template<typename T>
         T& at(size_t index)
         {
-            if (index >= (static_cast<size_t>(dwMapViewSize) - iViewDelta) / sizeof(T)) {
+            if (index >= (getAllocatedViewSize()) / sizeof(T)) {
                 throw std::out_of_range("Index out of range");
             }
             return *(reinterpret_cast<T*>(getPtr()) + index);
         }
+
+        void  warmPages();
 
         friend class MMFile;
 
@@ -57,27 +61,20 @@ namespace SoraMem
         void                    unloadAll();
         void                    resize(const size_t& fileSize); // in bytes
         void                    reset();
+        void                    createMapObj();
 
         void*                   getViewPtr(const MemView& view) const;
 
         bool                    isValid() const;
+
+        size_t                  getID() const;
+
+        uint32_t                getSysGran() { return sysGran; }
+        uint32_t                getSysPageSize() { return sysPageSize; }
+
         const size_t&           getFileSize() const;
 
-        inline size_t           getID() const;
-        inline void             createMapObj();
-
-
-        template<typename T>
-        T& refAt(const size_t& index, const MemView& view) // recommended using
-        {
-            if (index >= (static_cast<size_t>(view.dwMapViewSize) - view.iViewDelta) / sizeof(T)) {
-                throw std::out_of_range("Index out of range");
-            }
-            return *(reinterpret_cast<T*>(getViewPtr(view)) + index);
-        }
-
         ~MMFile();
-
 
         //--------- Thread-safe methods ----------
 
@@ -90,9 +87,9 @@ namespace SoraMem
 
         void*                   getViewPtr_s(const MemView& view) const;
 
-        inline const size_t&    getFileSize_s() const;
-        inline size_t           getID_s() const;
+        size_t                  getID_s() const;
 
+        const size_t&           getFileSize_s() const;
 
         template<typename T>
         T& refAt_s(const size_t& index, const MemView& view)
@@ -126,13 +123,16 @@ namespace SoraMem
 
         //--- Member Variables
 
-        HANDLE m_hMapFile = NULL;       // handle for the file's memory-mapped region
-        HANDLE m_hFile = NULL;          // the file handle
+        HANDLE m_hMapFile = nullptr;        // handle for the file's memory-mapped region
+        HANDLE m_hFile = nullptr;           // the file handle
 
-        size_t m_fileSize = 0;          // temporary storage for file sizes  
+        size_t m_fileSize = 0;              // temporary storage for file sizes  
         size_t m_fileID = 0;
 
-        const size_t alignment = 1024;  // Standard file alignment in bytes
+        const uint64_t alignment = 1024;    // Standard file alignment in bytes
+        
+        uint32_t sysGran = 0;
+        uint32_t sysPageSize = 0;
 
         std::unordered_map<LPVOID, MemView> views;
         std::shared_ptr<std::shared_mutex> mutex = std::make_shared<std::shared_mutex>();

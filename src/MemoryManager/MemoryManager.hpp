@@ -12,20 +12,21 @@ namespace SoraMem
 
     class MemoryFilePool{
     public:
-        MMFile* acquire();
+        MMFile*                 acquire();
 
-        inline void release(MMFile* ptr);
-        inline void clear();
+        inline void             release(MMFile* ptr);
+        inline void             clear();
 
-        inline size_t size();
+        inline size_t           size();
     private:
-        std::list<MMFile*>			filePool;
-        std::shared_mutex					mutex;
+        std::list<MMFile*>      filePool;
+        std::shared_mutex       mutex;
     };
 
     class MemoryManager {
     public:
-        static MemoryManager& getManager();
+        MemoryManager() {};
+        //static MemoryManager& getManager();
         void initManager();
         void setTmpDir(const std::string& dir);
 
@@ -54,9 +55,9 @@ namespace SoraMem
         
         
         std::atomic<unsigned long long>& getUsedMemory() { return m_usedMem; }
-    
+        
+
     private:
-        MemoryManager() {};
         void copyThreadsRawPtr(MMFile* _dst, void* _src, size_t offset, size_t _size);
         void copyThreadsRawPtr_AVX2(MMFile* _dst, void* _src, size_t offset, size_t _size);
 
@@ -64,19 +65,23 @@ namespace SoraMem
     public:
 #endif // TESTING
 
-        unsigned							n_FileCreated = 0;
-        unsigned long						dwSysGran = 0;
-        std::string							tmpDir = "";
+        unsigned                            n_FileCreated = 0;
+        unsigned long                       dwSysGran = 0;
+        unsigned long                       dwPageSize = 0;
+        
+        std::string                         tmpDir = "";
 
-        std::atomic<unsigned long long>		m_usedMem;
-        std::atomic<unsigned long>			m_fileID;
-        std::atomic<unsigned long>			permFileID;
+        std::atomic<unsigned long long>     m_usedMem;
+        std::atomic<unsigned long>          m_fileID;
+        std::atomic<unsigned long>          permFileID;
 
-        std::unique_ptr<std::shared_mutex>	mutex = std::make_unique<std::shared_mutex>();
+        std::unique_ptr<std::shared_mutex>  mutex = std::make_unique<std::shared_mutex>();
 
-        std::list<unsigned long>			inactiveFileID;
-        MemoryFilePool						filePool;
+        std::list<unsigned long>            inactiveFileID;
+        MemoryFilePool                      filePool;
     };
+
 }
 
-static SoraMem::MemoryManager& MemMng = SoraMem::MemoryManager::getManager();
+static SoraMem::MemoryManager MemMng; //Default manager
+

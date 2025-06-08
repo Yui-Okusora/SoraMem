@@ -11,15 +11,11 @@ namespace SoraMem
 
     MemView& MMFile::_load(MemView& view, size_t offset, size_t size)
     {
-        // Cache system granularity to avoid repeated calls
-        const DWORD sysGranularity = MemMng.getSysGranularity();
-
-
         // Calculate file map start and view size
-        DWORD dwFileMapStart = static_cast<DWORD>((offset / sysGranularity) * sysGranularity);
+        DWORD dwFileMapStart = static_cast<DWORD>((offset / sysGran) * sysGran);
         view.parent = this;
         view._offset = offset;
-        view.dwMapViewSize = static_cast<DWORD>((offset % sysGranularity) + size);
+        view.dwMapViewSize = static_cast<DWORD>((offset % sysGran) + size);
         view.iViewDelta = static_cast<unsigned long>(offset - dwFileMapStart);
 
 
@@ -31,7 +27,7 @@ namespace SoraMem
         // Map the file view
         view.lpMapAddress = MapViewOfFile(getMapHandle(), FILE_MAP_ALL_ACCESS, newSize.HighPart, newSize.LowPart, view.dwMapViewSize);
 
-        if (view.lpMapAddress == NULL) {
+        if (view.lpMapAddress == nullptr) {
             throw std::runtime_error("Failed to map view of file. Error code: " + std::to_string(GetLastError()));
         }
 
@@ -102,7 +98,7 @@ namespace SoraMem
         HANDLE& mapHandle = getMapHandle();
         HANDLE& fileHandle = getFileHandle();
 
-        if (mapHandle != NULL) {
+        if (mapHandle != nullptr) {
             CloseHandle(mapHandle);
         }
 
@@ -175,13 +171,13 @@ namespace SoraMem
     void MMFile::closeAllPtr()
     {
         unloadAll();
-        if (getMapHandle() != NULL) {
+        if (getMapHandle() != nullptr) {
             CloseHandle(getMapHandle());
-            getMapHandle() = NULL;
+            getMapHandle() = nullptr;
         }
-        if (getFileHandle() != NULL) {
+        if (getFileHandle() != nullptr) {
             CloseHandle(getFileHandle());
-            getFileHandle() = NULL;
+            getFileHandle() = nullptr;
         }
     }
 
@@ -228,7 +224,7 @@ namespace SoraMem
     {
         unloadAll_s();
         CloseHandle(getMapHandle());
-        getMapHandle() = NULL;
+        getMapHandle() = nullptr;
         m_fileSize = 0;
     }
 
@@ -241,8 +237,20 @@ namespace SoraMem
         m_fileID = 0;
     }
 
+
+
+    //-------- MemView definitions ---------
+
     MemView::~MemView()
     {
         parent->unload(*this);
+    }
+
+    void MemView::warmPages()
+    {
+        for (int i = 0; i + parent->getSysPageSize() <= getAllocatedViewSize(); i += parent->getSysPageSize())
+        {
+            volatile char tmp = at<char>(i);
+        }
     }
 }

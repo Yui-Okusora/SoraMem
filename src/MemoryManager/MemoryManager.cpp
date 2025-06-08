@@ -11,11 +11,11 @@
 
 namespace SoraMem
 {
-    MemoryManager& MemoryManager::getManager()
+    /*MemoryManager& MemoryManager::getManager()
     {
         static MemoryManager instance;
         return instance;
-    }
+    }*/
 
     void MemoryManager::initManager()
     {
@@ -24,6 +24,7 @@ namespace SoraMem
             SYSTEM_INFO SysInfo;
             GetSystemInfo(&SysInfo);
             dwSysGran = SysInfo.dwAllocationGranularity;
+            dwPageSize = SysInfo.dwPageSize;
             m_usedMem = 0;
             m_fileID = 0;
             permFileID = 0;
@@ -60,6 +61,8 @@ namespace SoraMem
         dir = tmpDir + std::to_string(tmpID) + ".tmpbin";
 
         tmp->m_fileID = tmpID;
+        tmp->sysGran = dwSysGran;
+        tmp->sysPageSize = dwPageSize;
         tmp->getFileHandle() = CreateFile(dir.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
         if (tmp->getFileHandle() == INVALID_HANDLE_VALUE) {
@@ -156,11 +159,11 @@ namespace SoraMem
     void MemoryManager::memcopy(MMFile*& _dst, MMFile* _src, const short& _typeSize, const size_t& _size)
     {
         Timer timer("MemoryManager::memcopy");
-        if (_dst == NULL) MemMng.createTmp(_dst, _size);
+        if (_dst == nullptr) MemMng.createTmp(_dst, _size);
         std::unique_lock<std::shared_mutex> lockDst(*_dst->mutex);
         std::unique_lock<std::shared_mutex> lockSrc(*_src->mutex);
 
-        if (_dst->getFileHandle() == NULL)
+        if (_dst->getFileHandle() == nullptr)
         {
             lockDst.unlock();
             MemMng.createTmp(_dst, _size);
@@ -180,7 +183,7 @@ namespace SoraMem
         _src->closeAllPtr();
         CopyFile(lpSrcFileName, lpDstFileName, false);
         _dst->getFileHandle() = CreateFile(lpDstFileName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (_dst->getFileHandle() == NULL)
+        if (_dst->getFileHandle() == nullptr)
             int e = GetLastError();
 
         _src->getFileHandle() = CreateFile(lpSrcFileName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -200,6 +203,8 @@ namespace SoraMem
     {
         // Load destination view
         MemView& dstView = _dst->load_s(offset, _size);
+
+        //dstView.warmPages();
 
         uint8_t* dstPtr = (uint8_t*)_dst->getViewPtr_s(dstView);
         uint8_t* srcPtr = (uint8_t*)_src + offset;
