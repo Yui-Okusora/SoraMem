@@ -17,7 +17,7 @@ A Memory Management System based on memory-mapped files allows fast access and r
 - Process chunks in parallel using up to 4 threads.
 
 ### 3. Memory/File Pooling ✅
-- Reuse `AdvancedMemory` objects and associated file handles.
+- Reuse `MMFile` objects and associated file handles.
 - Reduces system call overhead and improves runtime efficiency.
 
 ### 4. Alignment Optimization ✅
@@ -31,7 +31,7 @@ A Memory Management System based on memory-mapped files allows fast access and r
 - Enable shared views with isolation on write for memory efficiency.
 
 ### 7. Memory View Pooling
-- Reuse `ViewOfAdvancedMemory` objects to reduce mapping overhead.
+- Reuse `MemView` objects to reduce mapping overhead.
 - Avoid unnecessary `MapViewOfFile`/`UnmapViewOfFile` cycles.
 
 ### 8. Async I/O with Overlapped I/O
