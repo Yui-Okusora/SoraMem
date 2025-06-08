@@ -1,5 +1,6 @@
 # SoraMem
-Memory of the night sky
+
+A Memory Management System based on memory-mapped files allows fast access and reduces RAM usage for reading/writing large files.
 
 ---
 
