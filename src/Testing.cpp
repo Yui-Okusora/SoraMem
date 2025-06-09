@@ -44,7 +44,7 @@ int main()
 
 	MemView& view = mmf->load(0, 1024);
 
-	print << std::setw(20) << std::left << "View loaded: " << test(view.lpMapAddress != nullptr);
+	print << std::setw(20) << std::left << "View loaded: " << test(view.getViewOrigin() != nullptr);
 
 	for (uint16_t i = 0; i < mmf->getFileSize() / 4; ++i)
 	{

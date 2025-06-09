@@ -11,12 +11,6 @@
 
 namespace SoraMem
 {
-    /*MemoryManager& MemoryManager::getManager()
-    {
-        static MemoryManager instance;
-        return instance;
-    }*/
-
     void MemoryManager::initManager()
     {
         static std::once_flag initFlag;
@@ -60,12 +54,12 @@ namespace SoraMem
 
         dir = tmpDir + std::to_string(tmpID) + ".tmpbin";
 
-        tmp->m_fileID = tmpID;
-        tmp->sysGran = dwSysGran;
-        tmp->sysPageSize = dwPageSize;
-        tmp->getFileHandle() = CreateFile(dir.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        tmp->setID() = tmpID;
+        tmp->setSysGran() = dwSysGran;
+        tmp->setSysPageSize() = dwPageSize;
+        tmp->setFileHandle() = CreateFile(dir.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
-        if (tmp->getFileHandle() == INVALID_HANDLE_VALUE) {
+        if (tmp->setFileHandle() == INVALID_HANDLE_VALUE) {
             delete tmp;
             throw std::runtime_error("Failed to create temporary file: " + std::string(dir));
         }
@@ -182,11 +176,11 @@ namespace SoraMem
         _dst->closeAllPtr();
         _src->closeAllPtr();
         CopyFile(lpSrcFileName, lpDstFileName, false);
-        _dst->getFileHandle() = CreateFile(lpDstFileName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        _dst->setFileHandle() = CreateFile(lpDstFileName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
         if (_dst->getFileHandle() == nullptr)
             int e = GetLastError();
 
-        _src->getFileHandle() = CreateFile(lpSrcFileName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        _src->setFileHandle() = CreateFile(lpSrcFileName, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
         _dst->m_fileSize = GetFileSize(_dst->getFileHandle(), NULL);
         _dst->createMapObj();
         _src->createMapObj();
@@ -195,7 +189,7 @@ namespace SoraMem
     void MemoryManager::copyThreadsRawPtr(MMFile* _dst, void* _src, size_t offset, size_t _size)
     {
         MemView& dstView = _dst->load_s(offset, _size);
-        memcpy(_dst->getViewPtr_s(dstView), (char*)_src + offset, _size);
+        memcpy(dstView.getPtr_s(), (char*)_src + offset, _size);
         _dst->unload_s(dstView);
     }
 
@@ -204,9 +198,7 @@ namespace SoraMem
         // Load destination view
         MemView& dstView = _dst->load_s(offset, _size);
 
-        //dstView.warmPages();
-
-        uint8_t* dstPtr = (uint8_t*)_dst->getViewPtr_s(dstView);
+        uint8_t* dstPtr = (uint8_t*)dstView.getPtr_s();
         uint8_t* srcPtr = (uint8_t*)_src + offset;
 
         size_t i = 0;
@@ -235,11 +227,11 @@ namespace SoraMem
         HANDLE thisProcess = GetCurrentProcess();
         _dst->closeAllPtr();
 
-        if (!DuplicateHandle(thisProcess, _src->getFileHandle(), thisProcess, &_dst->getFileHandle(), 0, FALSE, DUPLICATE_SAME_ACCESS)) {
+        if (!DuplicateHandle(thisProcess, _src->getFileHandle(), thisProcess, &_dst->setFileHandle(), 0, FALSE, DUPLICATE_SAME_ACCESS)) {
             throw std::runtime_error("Failed to duplicate file handle.");
         }
 
-        if (!DuplicateHandle(thisProcess, _src->getMapHandle(), thisProcess, &_dst->getMapHandle(), 0, FALSE, DUPLICATE_SAME_ACCESS)) {
+        if (!DuplicateHandle(thisProcess, _src->getMapHandle(), thisProcess, &_dst->setMapHandle(), 0, FALSE, DUPLICATE_SAME_ACCESS)) {
             throw std::runtime_error("Failed to duplicate map handle.");
         }
         
@@ -253,6 +245,9 @@ namespace SoraMem
     void MemoryManager::free(MMFile* ptr) {
         filePool.release(ptr);
     }
+
+
+    //------ Memory File Pool --------
 
     MMFile* MemoryFilePool::acquire()
     {

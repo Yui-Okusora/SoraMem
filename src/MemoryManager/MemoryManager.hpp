@@ -26,7 +26,6 @@ namespace SoraMem
     class MemoryManager {
     public:
         MemoryManager() {};
-        //static MemoryManager& getManager();
         void initManager();
         void setTmpDir(const std::string& dir);
 

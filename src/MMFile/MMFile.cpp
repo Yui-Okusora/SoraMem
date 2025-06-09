@@ -95,8 +95,8 @@ namespace SoraMem
 
         unloadAll();
 
-        HANDLE& mapHandle = getMapHandle();
-        HANDLE& fileHandle = getFileHandle();
+        HANDLE& mapHandle = setMapHandle();
+        HANDLE& fileHandle = setFileHandle();
 
         if (mapHandle != nullptr) {
             CloseHandle(mapHandle);
@@ -121,7 +121,7 @@ namespace SoraMem
 
     void MMFile::createMapObj()
     {
-        getMapHandle() = CreateFileMapping(getFileHandle(), NULL, PAGE_READWRITE, 0, 0, NULL);
+        setMapHandle() = CreateFileMapping(getFileHandle(), NULL, PAGE_READWRITE, 0, 0, NULL);
     }
 
     void MMFile::createMapObj_s()
@@ -173,11 +173,11 @@ namespace SoraMem
         unloadAll();
         if (getMapHandle() != nullptr) {
             CloseHandle(getMapHandle());
-            getMapHandle() = nullptr;
+            setMapHandle() = nullptr;
         }
         if (getFileHandle() != nullptr) {
             CloseHandle(getFileHandle());
-            getFileHandle() = nullptr;
+            setFileHandle() = nullptr;
         }
     }
 
@@ -187,34 +187,13 @@ namespace SoraMem
         closeAllPtr();
     }
 
-    void* MMFile::getViewPtr(const MemView& view) const
-    {
-        return (char*)view.lpMapAddress + view.iViewDelta;
-    }
-
-    void* MMFile::getViewPtr_s(const MemView& view) const
-    {
-        std::unique_lock<std::shared_mutex> lock(*view.mutex);
-        return getViewPtr(view);
-    }
-
-    const size_t& MMFile::getFileSize() const
-    {
-        return m_fileSize;
-    }
-
-    const size_t& MMFile::getFileSize_s() const
+    size_t MMFile::getFileSize_s() const
     {
         std::shared_lock<std::shared_mutex> lock(*mutex);
         return getFileSize();
     }
 
-    size_t MMFile::getID() const
-    {
-        return m_fileID;
-    }
-
-    size_t MMFile::getID_s() const
+    size_t MMFile::getID_s()
     {
         std::shared_lock<std::shared_mutex> lock(*mutex);
         return getID();
@@ -224,7 +203,7 @@ namespace SoraMem
     {
         unloadAll_s();
         CloseHandle(getMapHandle());
-        getMapHandle() = nullptr;
+        setMapHandle() = nullptr;
         m_fileSize = 0;
     }
 
@@ -237,13 +216,17 @@ namespace SoraMem
         m_fileID = 0;
     }
 
-
-
     //-------- MemView definitions ---------
 
     MemView::~MemView()
     {
         parent->unload(*this);
+    }
+
+    void* MemView::getPtr_s() const 
+    {
+        std::shared_lock<std::shared_mutex> lock(*mutex);
+        return getPtr();
     }
 
     void MemView::warmPages()
