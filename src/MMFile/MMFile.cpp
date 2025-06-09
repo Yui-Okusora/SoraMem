@@ -1,4 +1,5 @@
 #include "MMFile.hpp"
+#include "src/MemoryManager/MemoryManager.hpp"
 
 #include <string>
 
@@ -32,7 +33,7 @@ namespace SoraMem
         }
 
         // Update memory usage atomically
-        MemMng.getUsedMemory().fetch_add(view.dwMapViewSize, std::memory_order_relaxed);
+        manager->getUsedMemory().fetch_add(view.dwMapViewSize, std::memory_order_relaxed);
 
         return view;
     }
@@ -137,7 +138,7 @@ namespace SoraMem
             return; // View not found
         }
 
-        MemMng.getUsedMemory().fetch_sub(view.dwMapViewSize, std::memory_order_relaxed);
+        manager->getUsedMemory().fetch_sub(view.dwMapViewSize, std::memory_order_relaxed);
 
         UnmapViewOfFile(view.lpMapAddress);
         views.erase(it);
@@ -159,7 +160,7 @@ namespace SoraMem
             it = views.erase(it); // Efficiently erase while iterating
         }
 
-        MemMng.getUsedMemory().fetch_sub(totalFreedMemory, std::memory_order_relaxed);
+        manager->getUsedMemory().fetch_sub(totalFreedMemory, std::memory_order_relaxed);
     }
 
     void MMFile::unloadAll_s()
@@ -211,7 +212,7 @@ namespace SoraMem
     {
         closeAllPtr();
         std::unique_lock<std::shared_mutex> lock(*mutex);
-        MemMng.addTmpInactive((unsigned long)m_fileID);
+        manager->addTmpInactive((unsigned long)m_fileID);
         m_fileSize = 0;
         m_fileID = 0;
     }
@@ -231,7 +232,7 @@ namespace SoraMem
 
     void MemView::warmPages()
     {
-        for (int i = 0; i + parent->getSysPageSize() <= getAllocatedViewSize(); i += parent->getSysPageSize())
+        for (uint64_t i = 0; i + parent->getSysPageSize() <= getAllocatedViewSize(); i += parent->getSysPageSize())
         {
             volatile char tmp = at<char>(i);
         }

@@ -136,6 +136,7 @@
     <ClCompile Include="src\MMFile\MMFile.cpp" />
     <ClCompile Include="src\memorymanager\MemoryManager.cpp" />
     <ClCompile Include="src\Testing.cpp" />
+    <ClCompile Include="src\ThreadPool\ThreadPool.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\MMFile\MMFile.hpp" />
@@ -143,6 +144,7 @@
     <ClInclude Include="src\MemoryManager\CRC.hpp" />
     <ClInclude Include="src\memorymanager\MemoryManager.hpp" />
     <ClInclude Include="src\Timer.hpp" />
+    <ClInclude Include="src\ThreadPool\ThreadPool.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

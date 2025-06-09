@@ -4,10 +4,12 @@
 #include <algorithm>
 #include <thread>
 #include <iostream>
-#include <windows.h>
+
 #include <vector>
 
 #include "src/Timer.hpp"
+
+#include "src/MMFile/MMFile.hpp"
 
 namespace SoraMem
 {
@@ -57,6 +59,7 @@ namespace SoraMem
         tmp->setID() = tmpID;
         tmp->setSysGran() = dwSysGran;
         tmp->setSysPageSize() = dwPageSize;
+        tmp->setManager() = this;
         tmp->setFileHandle() = CreateFile(dir.c_str(), GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
         if (tmp->setFileHandle() == INVALID_HANDLE_VALUE) {
@@ -94,7 +97,7 @@ namespace SoraMem
         const size_t chunksPerThread = totalChunks / numThreads;
         const size_t remainderChunks = totalChunks % numThreads;
 
-        std::vector<std::thread> threads;
+        std::vector<std::future<bool>> threads;
         threads.reserve(numThreads);
 
         size_t currentOffset = 0;
@@ -108,13 +111,19 @@ namespace SoraMem
 
             size_t actualSize = (std::min)(chunkSize, _size - offset); // Clamp at the end
 
-            threads.emplace_back(&MemoryManager::copyThreadsRawPtr_AVX2, this, _dst, _src, offset, actualSize);
+            auto tmp = workerPool->submit([this](MMFile* _dst, void* _src, size_t offset, size_t _size) {
+                MemoryManager::copyThreadsRawPtr_AVX2(_dst, _src, offset, _size);
+                return true;
+                }, _dst, _src, offset, actualSize);
+
+            //threads.emplace_back(&MemoryManager::copyThreadsRawPtr_AVX2, this, _dst, _src, offset, actualSize);
         }
 
         for (auto& thread : threads) {
-            if (thread.joinable()) {
+            volatile bool tmp = thread.get();
+            /*if (thread.joinable()) {
                 thread.join();
-            }
+            }*/
         }
     }
 
@@ -213,9 +222,6 @@ namespace SoraMem
         }
 
         // Handle any remaining bytes that are less than 32 bytes
-        /*for (; i < _size; ++i) {
-            dstPtr[i] = srcPtr[i];
-        }*/
         if(i < _size) memcpy(&dstPtr[i], &srcPtr[i], _size - i - 1);
 
         // Unload destination view

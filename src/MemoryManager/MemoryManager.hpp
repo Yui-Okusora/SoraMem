@@ -3,8 +3,8 @@
 #include <mutex>
 #include <shared_mutex>
 #include <list>
-
-#include "src/MMFile/MMFile.hpp"
+#include <windows.h>
+#include "src/ThreadPool/ThreadPool.hpp"
 
 namespace SoraMem
 {
@@ -28,6 +28,7 @@ namespace SoraMem
         MemoryManager() {};
         void initManager();
         void setTmpDir(const std::string& dir);
+        void setThreadPool(std::unique_ptr<ThreadPool>& pool) { workerPool = std::move(pool); }
 
         MemoryManager(MemoryManager const&) = delete;
         void operator=(MemoryManager const&) = delete;
@@ -58,7 +59,7 @@ namespace SoraMem
 
     private:
         void copyThreadsRawPtr(MMFile* _dst, void* _src, size_t offset, size_t _size);
-        void copyThreadsRawPtr_AVX2(MMFile* _dst, void* _src, size_t offset, size_t _size);
+        static void copyThreadsRawPtr_AVX2(MMFile* _dst, void* _src, size_t offset, size_t _size);
 
 #ifdef TESTING
     public:
@@ -78,6 +79,7 @@ namespace SoraMem
 
         std::list<unsigned long>            inactiveFileID;
         MemoryFilePool                      filePool;
+        std::unique_ptr<ThreadPool>         workerPool;
     };
 
 }

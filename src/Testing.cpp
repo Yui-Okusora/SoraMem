@@ -26,7 +26,10 @@ int main()
 	using namespace SoraMem;
 	print << "TEST starting\n";
 
+	std::unique_ptr<ThreadPool> ManagerWorkerPool = std::make_unique<ThreadPool>(2);
+
 	MemMng.initManager();
+	MemMng.setThreadPool(ManagerWorkerPool);
 	MemMng.setTmpDir("temp\\");
 
 	{

@@ -2,11 +2,11 @@
 
 #include <unordered_map>
 #include <Windows.h>
-
-#include "src/MemoryManager/MemoryManager.hpp"
+#include <shared_mutex>
 
 namespace SoraMem
 {
+    class MemoryManager;
 
     class MMFile;
 
@@ -49,7 +49,7 @@ namespace SoraMem
         friend class MMFile;
 
         LPVOID        lpMapAddress = nullptr;     // first address of the mapped view
-        DWORD         dwMapViewSize = 0;          // the size of the view
+        uint32_t      dwMapViewSize = 0;          // the size of the view
         uint32_t      iViewDelta = 0;             // Offset from lpMapAddr
         uint64_t      _offset = 0;                // Offset from origin
 
@@ -132,6 +132,8 @@ namespace SoraMem
         uint32_t&               setSysGran()        { return sysGran; }
         uint32_t&               setSysPageSize()    { return sysPageSize; }
 
+        MemoryManager*&         setManager()        { return manager; }
+
 
         //--- Member Variables
 
@@ -145,6 +147,8 @@ namespace SoraMem
         uint32_t sysPageSize = 0;           // System page size
 
         const uint64_t alignment = 1024;    // Standard file alignment in bytes
+        
+        MemoryManager* manager = nullptr;
 
         std::unordered_map<LPVOID, MemView> views;
         std::shared_ptr<std::shared_mutex> mutex = std::make_shared<std::shared_mutex>();
