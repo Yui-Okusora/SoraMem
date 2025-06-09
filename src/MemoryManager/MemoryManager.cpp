@@ -90,7 +90,7 @@ namespace SoraMem
         }
 
         const size_t granularity = dwSysGran; // e.g., 65536
-        const size_t maxThreads = 4;
+        const size_t maxThreads = 100;
         const size_t totalChunks = (_size + granularity - 1) / granularity;
         const size_t numThreads = (std::min)(maxThreads, totalChunks);
 
@@ -115,15 +115,12 @@ namespace SoraMem
                 MemoryManager::copyThreadsRawPtr_AVX2(_dst, _src, offset, _size);
                 return true;
                 }, _dst, _src, offset, actualSize);
-
-            //threads.emplace_back(&MemoryManager::copyThreadsRawPtr_AVX2, this, _dst, _src, offset, actualSize);
+            threads.push_back(std::move(tmp));
         }
 
+        // Ensure all of the tasks are done
         for (auto& thread : threads) {
             volatile bool tmp = thread.get();
-            /*if (thread.joinable()) {
-                thread.join();
-            }*/
         }
     }
 
@@ -143,19 +140,22 @@ namespace SoraMem
         const size_t chunkSize = (std::min)(static_cast<size_t>(dwSysGran * 1024), _size);
         const size_t numThreads = (_size + chunkSize - 1) / chunkSize;
 
-        std::vector<std::thread> threads;
+        std::vector<std::future<bool>> threads;
         threads.reserve(numThreads);
 
         for (size_t i = 0; i < numThreads; ++i) {
             size_t offset = i * chunkSize;
             size_t chunkCpy = (std::min)(chunkSize, _size - offset);
-            threads.emplace_back(&MemoryManager::copyThreadsRawPtr, this, _dst, _src, offset, chunkCpy);
+            auto tmp = workerPool->submit([this](MMFile* _dst, void* _src, size_t offset, size_t _size) {
+                MemoryManager::copyThreadsRawPtr(_dst, _src, offset, _size);
+                return true;
+                }, _dst, _src, offset, chunkCpy);
+            threads.push_back(std::move(tmp));
         }
 
+        // Ensure all of the tasks are done
         for (auto& thread : threads) {
-            if (thread.joinable()) {
-                thread.join();
-            }
+            volatile bool tmp = thread.get();
         }
     }
 
