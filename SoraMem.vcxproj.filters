@@ -27,6 +27,9 @@
     <ClCompile Include="src\ThreadPool\ThreadPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\CRC32_64\CRC32_64.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\MMFile\MMFile.hpp">
@@ -41,10 +44,10 @@
     <ClInclude Include="src\MMFile\SoraMemFileSpecification.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\MemoryManager\CRC.hpp">
+    <ClInclude Include="src\ThreadPool\ThreadPool.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\ThreadPool\ThreadPool.hpp">
+    <ClInclude Include="src\CRC32_64\CRC32_64.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

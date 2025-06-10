@@ -5,6 +5,7 @@
 #include "MMFile/MMFile.hpp"
 #include "MemoryManager/MemoryManager.hpp"
 #include "MemoryManager/CRC.hpp"
+#include "CRC32_64/CRC32_64.hpp"
 
 #include "Timer.hpp"
 
@@ -71,9 +72,30 @@ int main()
 		MemMng.memcopy_AVX2(mmf2, view.getPtr(), 1024);
 	}
 	print << "Copy completed\n";
+	CRC32_64 crc;
 	MemView& view2 = mmf2->load(0, 1024);
-	print << "CRC32: " << std::hex << CRC::crc_lut((uint8_t*)view2.getPtr(), 1024, CRC::table32) << "\n";
+	crc.reset();
+	crc.appendCRC32((uint8_t*)view2.getPtr(), 1024);
+	crc.appendCRC64((uint8_t*)view2.getPtr(), 1024);
+	crc.finallize();
+	print << "CRC32: " << std::hex << crc.getCRC32() << "\n";
+	print << "CRC64: " << std::hex << crc.getCRC64() << "\n";
 
+	crc.reset();
+	crc.appendCRC64((uint8_t*)view2.getPtr() + 512, 512);
+	crc.appendCRC32((uint8_t*)view2.getPtr() + 512, 512);
+	crc.finallize();
+	uint64_t crc641 = crc.getCRC64();
+	uint32_t crc321 = crc.getCRC32();
+	crc.reset();
+	crc.appendCRC64((uint8_t*)view2.getPtr(), 512);
+	crc.appendCRC32((uint8_t*)view2.getPtr(), 512);
+	crc.finallize();
+	uint64_t crc642 = crc.getCRC64();
+	uint32_t crc322 = crc.getCRC32();
+
+	print << "Testing combined CRC32: " << crc.combineCRC32(crc321, crc322, 512) << "\n";
+	print << "Testing combined CRC64: " << crc.combineCRC64(crc641, crc642, 512) << "\n";
 
 	print << "------ Passed: " << passCase << " --- Failed: " << failCase << " --------\n";
 	return 0;
