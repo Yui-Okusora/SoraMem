@@ -12,7 +12,7 @@ public:
 		if (poly32 == 0) poly32 = reflect32(_poly32);
 		if (poly64 == 0) poly64 = reflect64(_poly64);
 		if (table32[1] == 0) {
-			table32 = CRC32_64::calcLUT(poly32);
+			table32 = calcLUT(poly32);
 			crc32_init_shift_matrix();
 		}
 		if (table64[1] == 0) {
