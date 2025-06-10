@@ -1,6 +1,6 @@
 # SoraMem
 
-A Memory Management System based on memory-mapped files allows fast access and reduces RAM usage for reading/writing large files.
+A Memory Management System based on memory-mapped files allows fast access and reduces RAM usage for random/sequential reading/writing of large files.
 
 *** Basically, trading disk storage for more RAM. ***
 
