@@ -2,6 +2,8 @@
 
 A Memory Management System based on memory-mapped files allows fast access and reduces RAM usage for reading/writing large files.
 
+*** Basically, trading disk storage for more RAM. ***
+
 ---
 
 # SoraMem Feature Roadmap: Performance and Reliability
@@ -62,7 +64,7 @@ A Memory Management System based on memory-mapped files allows fast access and r
 
 ## Reliability and Robustness
 
-### 1. File Integrity Checking
+### 1. File Integrity Checking ✅
 - Add CRC32/64 for fast validation.
 - Use SHA-256 for secure and tamper-proof verification.
 
