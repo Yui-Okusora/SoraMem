@@ -207,6 +207,13 @@ namespace SoraMem
         setMapHandle() = nullptr;
         m_fileSize = 0;
     }
+    
+    uint32_t MMFile::getCRC32() {
+        return getCRC().getCRC32();
+    }
+    uint64_t MMFile::getCRC64() {
+        return getCRC().getCRC64();
+    }
 
     MMFile::~MMFile()
     {

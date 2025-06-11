@@ -1,6 +1,5 @@
 #pragma once
 #include <array>
-#include <iostream>
 
 class CRC32_64
 {
@@ -43,18 +42,23 @@ public:
 		return (x << 32) | (x >> 32);
 	}
 
-	void reset(){
-		crc32 = 0xFFFFFFFF;
-		crc64 = 0xFFFFFFFFFFFFFFFF;
+	void reset() {
+		reset32();
+		reset64();
 	}
+
+	void reset32() { crc32 = 0xFFFFFFFF; }
+	void reset64() { crc64 = 0xFFFFFFFFFFFFFFFF; }
 
 	void finallize() {
-		crc32 ^= 0xFFFFFFFF;
-		crc64 ^= 0xFFFFFFFFFFFFFFFF;
+		finallize32();
+		finallize64();
 	}
+	void finallize32() { crc32 ^= 0xFFFFFFFF; }
+	void finallize64() { crc64 ^= 0xFFFFFFFFFFFFFFFF; }
 
-	uint32_t getCRC32() { return crc32; }
-	uint64_t getCRC64() { return crc64; }
+	uint32_t& getCRC32() { return crc32; }
+	uint64_t& getCRC64() { return crc64; }
 
 	template<typename T>
 	T crc_lut(const uint8_t* data, size_t len, std::array<T, 256>& table) {
@@ -72,9 +76,9 @@ public:
 
 	uint64_t appendCRC64(const uint8_t* data, size_t len);
 
-	uint64_t combineCRC64(uint64_t crc1, uint64_t crc2, size_t len2);
+	static uint64_t combineCRC64(uint64_t crc1, uint64_t crc2, size_t len2);
 
-	uint32_t combineCRC32(uint32_t crc1, uint32_t crc2, size_t len2);
+	static uint32_t combineCRC32(uint32_t crc1, uint32_t crc2, size_t len2);
 
 private:
 	using Matrix64 = std::array<uint64_t, 64>;
@@ -112,9 +116,9 @@ private:
 
 	static void crc32_init_shift_matrix();
 
-	uint64_t crc64_shift(uint64_t crc, size_t len_bytes);
+	static uint64_t crc64_shift(uint64_t crc, size_t len_bytes);
 
-	uint32_t crc32_shift(uint32_t crc, size_t len_bytes);
+	static uint32_t crc32_shift(uint32_t crc, size_t len_bytes);
 
 	static std::array<uint32_t, 256> table32;
 	static std::array<uint64_t, 256> table64;

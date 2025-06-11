@@ -5,6 +5,7 @@
 #include <list>
 #include <windows.h>
 #include "src/ThreadPool/ThreadPool.hpp"
+#include "src/CRC32_64/CRC32_64.hpp"
 
 namespace SoraMem
 {
@@ -50,13 +51,13 @@ namespace SoraMem
         void free(MMFile* ptr);
         void addTmpInactive(const unsigned long& id) { inactiveFileID.emplace_back(id); }
         
+        uint32_t calcCRC32(MMFile* _src);
+        uint64_t calcCRC64(MMFile* _src);
         
         DWORD getSysGranularity() const { return dwSysGran; }
         
-        
         std::atomic<unsigned long long>& getUsedMemory() { return m_usedMem; }
         
-
     private:
         void copyThreadsRawPtr(MMFile* _dst, void* _src, size_t offset, size_t _size);
         static void copyThreadsRawPtr_AVX2(MMFile* _dst, void* _src, size_t offset, size_t _size);

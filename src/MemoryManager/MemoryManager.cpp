@@ -25,6 +25,7 @@ namespace SoraMem
             m_fileID = 0;
             permFileID = 0;
             });
+        CRC32_64::init();
     }
 
     void MemoryManager::setTmpDir(const std::string& dir)
@@ -252,6 +253,86 @@ namespace SoraMem
         filePool.release(ptr);
     }
 
+    uint32_t MemoryManager::calcCRC32(MMFile* _src) {
+        const uint64_t totalChunks = (_src->getFileSize() + getSysGranularity() - 1) / getSysGranularity();
+        const uint64_t fullChunks = _src->getFileSize() / getSysGranularity();
+        
+        auto task = [](MMFile* _src, uint64_t size, uint64_t offset) {
+            thread_local CRC32_64 crc;
+            MemView& view = _src->load(offset, size);
+            crc.reset32();
+            crc.appendCRC32((uint8_t*)view.getPtr(), size);
+            crc.finallize32();
+            _src->unload(view);
+            return crc.getCRC32();
+            };
+
+        std::vector<std::future<uint32_t>> crcCache;
+        crcCache.reserve(totalChunks);
+
+        if (totalChunks > fullChunks)
+        {
+            auto crc = workerPool->submit(task, _src, _src->getFileSize() - fullChunks * getSysGranularity(), fullChunks * getSysGranularity());
+            crcCache.push_back(std::move(crc));
+        }
+        for (int64_t i = fullChunks - 1; i >= 0; --i) {
+            auto crc = workerPool->submit(task, _src, getSysGranularity(), i * getSysGranularity());
+            crcCache.push_back(std::move(crc));
+        }
+        uint32_t crc = 0;
+        try {
+            crc = crcCache[0].get();
+            for (uint64_t i = 1; i < totalChunks; ++i) {
+                crc = CRC32_64::combineCRC32(crc, crcCache[i].get(), getSysGranularity());
+            }
+        }
+        catch (const std::exception& ex) {
+            std::cerr << "Exception from future: " << ex.what() << '\n';
+        }
+        _src->getCRC().getCRC32() = crc;
+        return crc;
+    }
+
+    uint64_t MemoryManager::calcCRC64(MMFile* _src) {
+        const uint64_t totalChunks = (_src->getFileSize() + getSysGranularity() - 1) / getSysGranularity();
+        const uint64_t fullChunks = _src->getFileSize() / getSysGranularity();
+
+        auto task = [](MMFile* _src, uint64_t size, uint64_t offset) {
+            thread_local CRC32_64 crc;
+            MemView& view = _src->load(offset, size);
+            crc.reset64();
+            crc.appendCRC64((uint8_t*)view.getPtr(), size);
+            crc.finallize64();
+            _src->unload(view);
+            return crc.getCRC64();
+            };
+
+        std::vector<std::future<uint64_t>> crcCache;
+        crcCache.reserve(totalChunks);
+
+        if (totalChunks > fullChunks)
+        {
+            auto crc = workerPool->submit(task, _src, _src->getFileSize() - fullChunks * getSysGranularity(), fullChunks * getSysGranularity());
+            crcCache.push_back(std::move(crc));
+        }
+        for (int64_t i = fullChunks - 1; i >= 0; --i) {
+            auto crc = workerPool->submit(task, _src, getSysGranularity(), i * getSysGranularity());
+            crcCache.push_back(std::move(crc));
+        }
+
+        uint64_t crc = 0;
+        try {
+            crc = crcCache[0].get();
+            for (uint64_t i = 1; i < totalChunks; ++i) {
+                crc = CRC32_64::combineCRC64(crc, crcCache[i].get(), getSysGranularity());
+            }
+        }
+        catch (const std::exception& ex) {
+            std::cerr << "Exception from future: " << ex.what() << '\n';
+        }
+        _src->getCRC().getCRC64() = crc;
+        return crc;
+    }
 
     //------ Memory File Pool --------
 

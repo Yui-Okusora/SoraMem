@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <Windows.h>
 #include <shared_mutex>
+#include "src/CRC32_64/CRC32_64.hpp"
 
 namespace SoraMem
 {
@@ -82,6 +83,10 @@ namespace SoraMem
 
         size_t                  getFileSize() const { return m_fileSize; }
 
+        CRC32_64&               getCRC() { return crc; }
+        uint32_t                getCRC32();
+        uint64_t                getCRC64();
+
         ~MMFile();
 
         //--------- Thread-safe methods ----------
@@ -149,6 +154,7 @@ namespace SoraMem
         const uint64_t alignment = 1024;    // Standard file alignment in bytes
         
         MemoryManager* manager = nullptr;
+        CRC32_64 crc;
 
         std::unordered_map<LPVOID, MemView> views;
         std::shared_ptr<std::shared_mutex> mutex = std::make_shared<std::shared_mutex>();
