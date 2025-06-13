@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <Windows.h>
 #include <shared_mutex>
+#include <mutex>
 #include "src/CRC32_64/CRC32_64.hpp"
 
 namespace SoraMem
@@ -14,6 +15,32 @@ namespace SoraMem
     class MemView
     {
     public:
+        MemView() {}
+
+        MemView(const MemView& other)
+            : lpMapAddress(other.lpMapAddress),
+            dwMapViewSize(other.dwMapViewSize),
+            iViewDelta(other.iViewDelta),
+            _offset(other._offset),
+            parent(other.parent)
+        {}
+
+        MemView(MemView&& other) noexcept
+            : lpMapAddress(other.lpMapAddress),
+            dwMapViewSize(other.dwMapViewSize),
+            iViewDelta(other.iViewDelta),
+            _offset(other._offset),
+            parent(other.parent)
+        {
+            // Leave other's data in a valid state if necessary
+            other.lpMapAddress = nullptr;
+            other.dwMapViewSize = 0;
+            other.iViewDelta = 0;
+            other._offset = 0;
+            other.parent = nullptr;
+            // mutex is default constructed, not moved
+        }
+
         MemView& operator=(const MemView& view)
         {
             lpMapAddress    = view.lpMapAddress;
@@ -24,15 +51,36 @@ namespace SoraMem
             return *this;
         }
 
+        MemView& operator=(MemView&& other) noexcept
+        {
+            if (this != &other) {
+                lpMapAddress = other.lpMapAddress;
+                dwMapViewSize = other.dwMapViewSize;
+                iViewDelta = other.iViewDelta;
+                _offset = other._offset;
+                parent = other.parent;
+
+                other.lpMapAddress = nullptr;
+                other.dwMapViewSize = 0;
+                other.iViewDelta = 0;
+                other._offset = 0;
+                other.parent = nullptr;
+                // mutex is not moved
+            }
+            return *this;
+        }
+
         void*       getPtr() const { return (char*)lpMapAddress + iViewDelta;}
         void*       getPtr_s() const;
-        void*       getViewOrigin() const { return lpMapAddress; }
+        void*       getViewOrigin() const noexcept { return lpMapAddress; }
 
-        uint32_t    getOffsetViewOrigin() const { return iViewDelta; }
+        uint32_t    getOffsetViewOrigin() const noexcept { return iViewDelta; }
 
-        uint64_t    getOffsetFromOrigin() const { return _offset; }
+        uint64_t    getOffsetFromOrigin() const noexcept { return _offset; }
 
-        uint64_t    getAllocatedViewSize() const { return static_cast<uint64_t>(dwMapViewSize) - iViewDelta;}
+        uint64_t    getAllocatedViewSize() const { return getViewSize() - iViewDelta;}
+
+        uint64_t    getViewSize() const { return static_cast<uint64_t>(dwMapViewSize); }
 
         template<typename T>
         T& at(size_t index)
@@ -56,13 +104,15 @@ namespace SoraMem
 
         MMFile*       parent = nullptr;
 
-        std::shared_ptr<std::shared_mutex> mutex = std::make_shared<std::shared_mutex>();
+        mutable std::mutex mutex;
     };
 
     class MMFile
     {
     public:
         friend class MemoryManager;
+
+        MMFile(){}
 
         MemView&                load(size_t offset, size_t size); // offset and size in bytes
         void                    unload(MemView& view);
@@ -71,21 +121,21 @@ namespace SoraMem
         void                    reset();
         void                    createMapObj();
 
-        bool                    isValid() const;
+        bool                    isValid()           const noexcept;
 
-        HANDLE                  getFileHandle() const { return m_hFile; }
-        HANDLE                  getMapHandle() const { return m_hMapFile; }
+        HANDLE                  getFileHandle()     const noexcept { return m_hFile; }
+        HANDLE                  getMapHandle()      const noexcept { return m_hMapFile; }
 
-        size_t                  getID() const { return m_fileID; }
+        size_t                  getID()             const noexcept { return m_fileID; }
 
-        uint32_t                getSysGran() const { return sysGran; }
-        uint32_t                getSysPageSize() const { return sysPageSize; }
+        uint32_t                getSysGran()        const noexcept { return sysGran; }
+        uint32_t                getSysPageSize()    const noexcept { return sysPageSize; }
 
-        size_t                  getFileSize() const { return m_fileSize; }
+        size_t                  getFileSize()       const noexcept { return m_fileSize; }
 
-        CRC32_64&               getCRC() { return crc; }
-        uint32_t                getCRC32();
-        uint64_t                getCRC64();
+        CRC32_64&               getCRC()                  noexcept { return crc; }
+        uint32_t                getCRC32()                noexcept;
+        uint64_t                getCRC64()                noexcept;
 
         ~MMFile();
 
@@ -102,42 +152,21 @@ namespace SoraMem
 
         size_t                  getFileSize_s() const;
 
-        template<typename T>
-        T& refAt_s(const size_t& index, const MemView& view)
-        {
-            std::unique_lock<std::shared_mutex> lock(*view.mutex);
-            if (index >= (static_cast<size_t>(view.dwMapViewSize) - view.iViewDelta) / sizeof(T)) {
-                throw std::out_of_range("Index out of range");
-            }
-            return *(reinterpret_cast<T*>(view.getPtr()) + index);
-        }
-
-        template<typename T>
-        T readAt(const size_t& index, const MemView& view) const
-        {
-            std::shared_lock<std::shared_mutex> lock(*view.mutex);
-            if (index >= (static_cast<size_t>(view.dwMapViewSize) - view.iViewDelta) / sizeof(T)) {
-                throw std::out_of_range("Index out of range");
-            }
-            return *(reinterpret_cast<T*>(view.getPtr()) + index);
-        }
-
-
     private:
         MemView&                _load(MemView& view, size_t offset, size_t size);
 
         void                    closeAllPtr();
         void                    closeAllPtr_s();
 
-        HANDLE&                 setFileHandle()     { return m_hFile; }
-        HANDLE&                 setMapHandle()      { return m_hMapFile; }
+        HANDLE&                 setFileHandle()     noexcept { return m_hFile; }
+        HANDLE&                 setMapHandle()      noexcept { return m_hMapFile; }
 
-        size_t&                 setID()             { return m_fileID; }
+        size_t&                 setID()             noexcept { return m_fileID; }
 
-        uint32_t&               setSysGran()        { return sysGran; }
-        uint32_t&               setSysPageSize()    { return sysPageSize; }
+        uint32_t&               setSysGran()        noexcept { return sysGran; }
+        uint32_t&               setSysPageSize()    noexcept { return sysPageSize; }
 
-        MemoryManager*&         setManager()        { return manager; }
+        MemoryManager*&         setManager()        noexcept { return manager; }
 
 
         //--- Member Variables
@@ -151,13 +180,13 @@ namespace SoraMem
         uint32_t sysGran = 0;               // System granularity size
         uint32_t sysPageSize = 0;           // System page size
 
-        const uint64_t alignment = 1024;    // Standard file alignment in bytes
+        const uint64_t alignment = 64;    // Standard file alignment in bytes
         
         MemoryManager* manager = nullptr;
         CRC32_64 crc;
 
         std::unordered_map<LPVOID, MemView> views;
-        std::shared_ptr<std::shared_mutex> mutex = std::make_shared<std::shared_mutex>();
+        mutable std::shared_mutex mutex;
     };
 
 }

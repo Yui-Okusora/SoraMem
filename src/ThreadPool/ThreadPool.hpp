@@ -19,6 +19,10 @@ public:
         -> std::future<std::invoke_result_t<F, Args...>>;
     // Trailing return type deduction;
 
+    int getAvailableThreads() const {
+        return availableThreads.load(std::memory_order_relaxed);
+    }
+
 private:
     std::vector<std::thread> workers;
     std::queue<std::function<void()>> tasks;
@@ -26,10 +30,10 @@ private:
     std::mutex queueMutex;
     std::condition_variable condition;
     std::atomic<bool> stop;
+    std::atomic<int> availableThreads;
 
     void workerLoop();
 };
-
 
 // template definition to prevent linking error
 

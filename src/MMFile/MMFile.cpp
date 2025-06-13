@@ -5,7 +5,7 @@
 
 namespace SoraMem
 {
-    bool MMFile::isValid() const
+    bool MMFile::isValid() const noexcept
     {
         return (m_hFile != INVALID_HANDLE_VALUE) && (m_hMapFile != INVALID_HANDLE_VALUE);
     }
@@ -52,15 +52,13 @@ namespace SoraMem
         _load(view, offset, size);
 
         // Use emplace for efficient insertion
-        auto& it = views.emplace(view.lpMapAddress, view).first->second;
-        view.lpMapAddress = nullptr;
-        return it;
+        return views.emplace(view.lpMapAddress, std::move(view)).first->second;
     }
 
     MemView& MMFile::load_s(size_t offset, size_t size)
     {
         {
-            std::shared_lock<std::shared_mutex> lock(*mutex);
+            std::shared_lock<std::shared_mutex> lock(mutex);
             if (!isValid()) {
                 throw std::invalid_argument("Invalid file or map handle.");
             }
@@ -72,15 +70,13 @@ namespace SoraMem
 
         MemView view;
         {
-            std::unique_lock<std::shared_mutex> lock(*view.mutex);
+            std::lock_guard<std::mutex> lock(view.mutex);
             _load(view, offset, size);
         }
 
         {
-            std::unique_lock<std::shared_mutex> lock(*mutex);
-            auto& it = views.emplace(view.lpMapAddress, view).first->second;
-            view.lpMapAddress = nullptr;
-            return it;
+            std::unique_lock<std::shared_mutex> lock(mutex);
+            return views.emplace(view.lpMapAddress, std::move(view)).first->second;
         }
     }
 
@@ -116,7 +112,7 @@ namespace SoraMem
 
     void MMFile::resize_s(const size_t& fileSize)
     {
-        std::unique_lock<std::shared_mutex> lock(*mutex);
+        std::unique_lock<std::shared_mutex> lock(mutex);
         resize(fileSize);
     }
 
@@ -127,7 +123,7 @@ namespace SoraMem
 
     void MMFile::createMapObj_s()
     {
-        std::unique_lock<std::shared_mutex> lock(*mutex);
+        std::unique_lock<std::shared_mutex> lock(mutex);
         createMapObj();
     }
 
@@ -139,14 +135,14 @@ namespace SoraMem
         }
 
         manager->getUsedMemory().fetch_sub(view.dwMapViewSize, std::memory_order_relaxed);
-
+        FlushViewOfFile(view.getViewOrigin(), view.getViewSize());  // flush modified view to file cache
         UnmapViewOfFile(view.lpMapAddress);
         views.erase(it);
     }
 
     void MMFile::unload_s(MemView& view)
     {
-        std::unique_lock<std::shared_mutex> lock(*mutex);
+        std::unique_lock<std::shared_mutex> lock(mutex);
         unload(view);
     }
 
@@ -159,13 +155,13 @@ namespace SoraMem
             UnmapViewOfFile(it->second.lpMapAddress);
             it = views.erase(it); // Efficiently erase while iterating
         }
-
+        FlushFileBuffers(getFileHandle());
         manager->getUsedMemory().fetch_sub(totalFreedMemory, std::memory_order_relaxed);
     }
 
     void MMFile::unloadAll_s()
     {
-        std::unique_lock<std::shared_mutex> lock(*mutex);
+        std::unique_lock<std::shared_mutex> lock(mutex);
         unloadAll();
     }
 
@@ -184,19 +180,19 @@ namespace SoraMem
 
     void MMFile::closeAllPtr_s()
     {
-        std::unique_lock<std::shared_mutex> lock(*mutex);
+        std::unique_lock<std::shared_mutex> lock(mutex);
         closeAllPtr();
     }
 
     size_t MMFile::getFileSize_s() const
     {
-        std::shared_lock<std::shared_mutex> lock(*mutex);
+        std::shared_lock<std::shared_mutex> lock(mutex);
         return getFileSize();
     }
 
     size_t MMFile::getID_s()
     {
-        std::shared_lock<std::shared_mutex> lock(*mutex);
+        std::shared_lock<std::shared_mutex> lock(mutex);
         return getID();
     }
 
@@ -208,17 +204,21 @@ namespace SoraMem
         m_fileSize = 0;
     }
     
-    uint32_t MMFile::getCRC32() {
+    uint32_t MMFile::getCRC32() noexcept
+    {
         return getCRC().getCRC32();
     }
-    uint64_t MMFile::getCRC64() {
+    
+    uint64_t MMFile::getCRC64() noexcept
+    {
         return getCRC().getCRC64();
     }
 
     MMFile::~MMFile()
     {
+        FlushFileBuffers(getFileHandle());
         closeAllPtr();
-        std::unique_lock<std::shared_mutex> lock(*mutex);
+        std::unique_lock<std::shared_mutex> lock(mutex);
         manager->addTmpInactive((unsigned long)m_fileID);
         m_fileSize = 0;
         m_fileID = 0;
@@ -228,12 +228,13 @@ namespace SoraMem
 
     MemView::~MemView()
     {
+        if(parent != nullptr)
         parent->unload(*this);
     }
 
     void* MemView::getPtr_s() const 
     {
-        std::shared_lock<std::shared_mutex> lock(*mutex);
+        std::lock_guard<std::mutex> lock(mutex);
         return getPtr();
     }
 

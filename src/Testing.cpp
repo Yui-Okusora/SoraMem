@@ -78,6 +78,7 @@ int main()
 	for (uint8_t i = 0; i < 10; ++i) {
 		Timer("memcopy avx2");
 		MemMng.memcopy_AVX2(mmf2, view.getPtr(), mmf2->getFileSize());
+		//MemMng.memcopy(mmf2, mmf, 4, mmf2->getFileSize());
 	}
 	print << "Copy completed\n";
 	

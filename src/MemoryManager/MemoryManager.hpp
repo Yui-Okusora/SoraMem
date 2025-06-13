@@ -3,7 +3,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <list>
-#include <windows.h>
+//#include <windows.h>
 #include "src/ThreadPool/ThreadPool.hpp"
 #include "src/CRC32_64/CRC32_64.hpp"
 
@@ -54,9 +54,9 @@ namespace SoraMem
         uint32_t calcCRC32(MMFile* _src);
         uint64_t calcCRC64(MMFile* _src);
         
-        DWORD getSysGranularity() const { return dwSysGran; }
+        unsigned long getSysGranularity() const noexcept { return dwSysGran; }
         
-        std::atomic<unsigned long long>& getUsedMemory() { return m_usedMem; }
+        std::atomic<unsigned long long>& getUsedMemory() noexcept { return m_usedMem; }
         
     private:
         void copyThreadsRawPtr(MMFile* _dst, void* _src, size_t offset, size_t _size);
@@ -76,7 +76,7 @@ namespace SoraMem
         std::atomic<unsigned long>          m_fileID;
         std::atomic<unsigned long>          permFileID;
 
-        std::unique_ptr<std::shared_mutex>  mutex = std::make_unique<std::shared_mutex>();
+        mutable std::mutex                  mutex;
 
         std::list<unsigned long>            inactiveFileID;
         MemoryFilePool                      filePool;

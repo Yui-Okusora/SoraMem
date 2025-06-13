@@ -1,13 +1,11 @@
 #include "MemoryManager.hpp"
 
 #include <immintrin.h>
-#include <algorithm>
 #include <thread>
+#include <Windows.h>
 #include <iostream>
-
+#include <string>
 #include <vector>
-
-#include "src/Timer.hpp"
 
 #include "src/MMFile/MMFile.hpp"
 
@@ -30,7 +28,7 @@ namespace SoraMem
 
     void MemoryManager::setTmpDir(const std::string& dir)
     {
-        std::unique_lock<std::shared_mutex> lock(*MemMng.mutex);
+        std::lock_guard<std::mutex> lock(mutex);
         tmpDir = dir;
         if (!CreateDirectory(dir.c_str(), NULL) && GetLastError() != ERROR_ALREADY_EXISTS) {
             throw std::runtime_error("Failed to create directory: " + dir);
@@ -45,7 +43,7 @@ namespace SoraMem
 
         unsigned long tmpID;
         {
-            std::unique_lock<std::shared_mutex> lockIDqueue(*MemMng.mutex);
+            std::lock_guard<std::mutex> lockIDqueue(mutex);
             if (inactiveFileID.empty()) {
                 tmpID = m_fileID++;
             }
@@ -80,11 +78,11 @@ namespace SoraMem
     void MemoryManager::memcopy_AVX2(MMFile*& _dst, void* _src, const size_t& _size)
     {
         if (_dst == nullptr) {
-            MemMng.createTmp(_dst, _size);
+            createTmp(_dst, _size);
         }
 
         {
-            std::shared_lock<std::shared_mutex> lockDst(*_dst->mutex);
+            std::shared_lock<std::shared_mutex> lockDst(_dst->mutex);
             if (_dst->getFileSize() < _size) {
                 _dst->resize(_size);
             }
@@ -128,11 +126,11 @@ namespace SoraMem
     void MemoryManager::memcopy(MMFile*& _dst, void* _src, const size_t& _size)
     {
         if (_dst == nullptr) {
-            MemMng.createTmp(_dst, _size);
+            createTmp(_dst, _size);
         }
 
         {
-            std::shared_lock<std::shared_mutex> lockDst(*_dst->mutex);
+            std::shared_lock<std::shared_mutex> lockDst(_dst->mutex);
             if (_dst->getFileSize() < _size) {
                 _dst->resize(_size);
             }
@@ -162,17 +160,16 @@ namespace SoraMem
 
     void MemoryManager::memcopy(MMFile*& _dst, MMFile* _src, const short& _typeSize, const size_t& _size)
     {
-        Timer timer("MemoryManager::memcopy");
-        if (_dst == nullptr) MemMng.createTmp(_dst, _size);
-        std::unique_lock<std::shared_mutex> lockDst(*_dst->mutex);
-        std::unique_lock<std::shared_mutex> lockSrc(*_src->mutex);
+        if (_dst == nullptr) createTmp(_dst, _size);
+        std::unique_lock<std::shared_mutex> lockDst(_dst->mutex);
+        std::unique_lock<std::shared_mutex> lockSrc(_src->mutex);
 
-        if (_dst->getFileHandle() == nullptr)
+        /*if (_dst->getFileHandle() == nullptr)
         {
             lockDst.unlock();
-            MemMng.createTmp(_dst, _size);
+            createTmp(_dst, _size);
             lockDst.lock();
-        }
+        }*/
 
         _dst->unloadAll();
         _src->unloadAll();
